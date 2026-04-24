@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Lint & Test (python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.11, 3.12]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install deps
+        run: python -m pip install --upgrade pip wheel
+      - name: Install package + dev deps
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run pre-commit hooks (format & lint)
+        run: |
+          pre-commit run --all-files || true
+          pre-commit run --hook-stage commit --all-files || true
+
+      - name: Run Ruff (lint)
+        run: python -m ruff check .
+
+      - name: Run tests
+        env:
+          # ensure CI doesn't accidentally leak keys; set required API keys as GitHub secrets if tests need them
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: pytest -q
