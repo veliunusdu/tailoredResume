@@ -1,0 +1,11 @@
+Title: Senior Python Engineer
+Company: CloudScale AI
+Description: We are looking for a Senior Python Engineer to lead our backend team.
+Requirements:
+- 5+ years of Python experience
+- Strong knowledge of AWS and Docker
+- Experience with CI/CD and PostgreSQL
+- Leadership experience is a plus
+- Bonus: Knowledge of Anthropic or OpenAI APIs
+- Location: Remote
+- Contact: careers@cloudscale.ai

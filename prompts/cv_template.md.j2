@@ -1,0 +1,25 @@
+{# version: v1 | 2026-04-21 | Initial CV template #}
+# [[FULL_NAME]]
+[[EMAIL]] | [[PHONE]] | [[LINKEDIN]]
+[[STREET_ADDRESS]]
+
+## Professional Summary
+{{ summary }}
+
+## Technical Skills
+**Skills:** {{ skills | join(', ') }}
+
+## Professional Experience
+{% for exp in experience %}
+### {{ exp.company }} | {{ exp.role }}
+{% for bullet in exp.bullets %}
+- {{ bullet.text }} *({{ bullet.impact }})*
+{% endfor %}
+{% endfor %}
+
+{% if suggested_projects %}
+## Projects
+{% for project in suggested_projects %}
+- {{ project }}
+{% endfor %}
+{% endif %}

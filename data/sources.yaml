@@ -1,0 +1,41 @@
+# Job discovery configuration
+sources:
+  - name: adzuna
+    enabled: true
+    queries:
+      - "Python Developer"
+      - "Software Engineer"
+      - "Data Engineer"
+    locations: ["us", "remote"]
+    weight: 0.8
+
+  - name: remotive
+    enabled: true
+    queries: ["python", "django", "backend"]
+
+  - name: remoteok
+    enabled: true
+    queries: ["python", "javascript"]
+
+  - name: greenhouse
+    enabled: true
+    queries: ["cymertek", "stripe", "airbnb"] # Company slugs
+
+  - name: lever
+    enabled: true
+    queries: ["lever", "netflix", "palantir"] # Company slugs
+
+  - name: dice
+    enabled: false # Scraper - use with caution
+    allow_scrape: false
+    queries: ["python developer"]
+
+  - name: wellfound
+    enabled: false # Scraper - use with caution
+    allow_scrape: false
+    queries: ["python"]
+
+global_filters:
+  remote_only: true
+  min_salary: 100000
+  excluded_companies: ["SpamCorp", "GhostJobs"]
