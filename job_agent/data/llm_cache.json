@@ -1,0 +1,47 @@
+{
+  "ada930eaedf42deb65526540d129fe7bb634fa0065b7b4f60a716f91fe3e5394": {
+    "verdict": "no",
+    "score": 2,
+    "reason": "This is a non-technical content moderation role that does not align with your goals in backend or AI/ML development."
+  },
+  "11555eb39432320b735ab3e9e42f8af51e3d8a0eb81c7e6e9373988e96ea8b43": {
+    "verdict": "maybe",
+    "score": 6,
+    "reason": "The technology stack perfectly matches your Python and AI/ML interests, though the role's scope might require more experience than a beginner level."
+  },
+  "913594064234713d04321bda1aa9f414af6544372a39865aaaa51b50d14786c2": {
+    "verdict": "no",
+    "score": 1,
+    "reason": "This is a customer support position and does not involve the software engineering or data tasks you are looking for."
+  },
+  "c570342ec19559ab6c6079ee6d7620c8516c344e69eb20a52e702fdd07949306": {
+    "verdict": "maybe",
+    "score": 4,
+    "reason": "While titled as a data analyst, these roles often involve manual data labeling rather than technical data science or engineering."
+  },
+  "1ac435e2c9feca6194caecd41cfbf69854a2fafc63751bc3dd0a8c975235b3f4": {
+    "verdict": "no",
+    "score": 0,
+    "reason": "This is an administrative office assistant role and is completely unrelated to your technical career path."
+  },
+  "f0dfa765fed0f2fbfd2bc6ff7ae1d4ff9a1f55accee20c581fd1cc953c5fa364": {
+    "verdict": "no",
+    "score": 1,
+    "reason": "This role requires Swift and iOS development skills which are outside of the user's Python-based backend and ML focus."
+  },
+  "1da0cd0e0da4754b8d5d48f7e8bf94ce47d22da265dcea83d7fe7a12d30c51b1": {
+    "verdict": "maybe",
+    "score": 6,
+    "reason": "The stack includes Python and AI/ML, but fullstack roles often require more experience with frontend frameworks like React than the user currently possesses."
+  },
+  "21c712dae875503a0aee49084a66e90d6fc295bd456d480f25e4b7a8dc016c18": {
+    "verdict": "yes",
+    "score": 8,
+    "reason": "This is an entry-level data role involving AI/ML research that fits well with a student's profile and interest in data/AI."
+  },
+  "7b957d7d8955e0035e8943a9adf4c7de389cda3d48e0300c2bc3cd7ab64724eb": {
+    "verdict": "no",
+    "score": 0,
+    "reason": "The position is for a copywriter, which is a non-technical role completely unrelated to software engineering or data science."
+  }
+}
