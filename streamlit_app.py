@@ -1,290 +1,373 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
-from app.agent import get_jobs
+from app.db import get_all_scored_jobs
+from app.config import DATA_DIR
 
-# --- PAGE CONFIG ---
+# ── Page Config ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="ApplyPilot Dashboard",
-    page_icon="✈️",
+    page_title="TailoredResume",
+    page_icon="🎯",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# --- PREMIUM STYLING ---
+# ── Global CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@500;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-    :root {
-        --primary: #6366f1;
-        --secondary: #a855f7;
-        --success: #10b981;
-        --warning: #f59e0b;
-        --danger: #ef4444;
-        --bg: #030712;
-        --surface: #111827;
-        --surface-light: #1f2937;
-        --text: #f8fafc;
-        --text-muted: #94a3b8;
-    }
+* { box-sizing: border-box; }
 
-    .stApp {
-        background-color: var(--bg);
-        color: var(--text);
-        font-family: 'Inter', sans-serif;
-    }
+html, body, .stApp {
+    background: #0a0a0f;
+    color: #e2e8f0;
+    font-family: 'Inter', sans-serif;
+}
 
-    /* Gradient Titles */
-    .main-title {
-        font-family: 'Outfit', sans-serif;
-        background: linear-gradient(to right, #818cf8, #c084fc);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 3rem;
-        font-weight: 800;
-        margin-bottom: 0.5rem;
-    }
+/* ── Hide Streamlit chrome ── */
+#MainMenu, header, footer { visibility: hidden; }
+.block-container { padding: 2rem 3rem; max-width: 1400px; }
 
-    /* Glassmorphism Cards */
-    div[data-testid="column"] {
-        background: rgba(31, 41, 55, 0.4);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        padding: 24px;
-        border-radius: 20px;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-    }
+/* ── Sidebar ── */
+section[data-testid="stSidebar"] {
+    background: #0f0f1a;
+    border-right: 1px solid #1e1e2e;
+}
 
-    /* Metrics Styling */
-    [data-testid="stMetricValue"] {
-        font-family: 'Outfit', sans-serif;
-        font-size: 2.8rem !important;
-        font-weight: 700 !important;
-        color: var(--text) !important;
-    }
-    [data-testid="stMetricLabel"] {
-        color: var(--text-muted) !important;
-        font-size: 1rem !important;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
+/* ── Metric cards ── */
+[data-testid="stMetric"] {
+    background: #111120;
+    border: 1px solid #1e1e2e;
+    border-radius: 12px;
+    padding: 1.5rem !important;
+}
+[data-testid="stMetricValue"] {
+    font-size: 2.4rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+}
+[data-testid="stMetricLabel"] {
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    color: #64748b !important;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+[data-testid="stMetricDelta"] { font-size: 0.85rem !important; }
 
-    /* Job Card / Expander */
-    div[data-testid="stExpander"] {
-        background: rgba(17, 24, 39, 0.7) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 16px !important;
-        margin-bottom: 16px !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
-    }
-    div[data-testid="stExpander"]:hover {
-        border-color: rgba(99, 102, 241, 0.4) !important;
-        background: rgba(17, 24, 39, 0.9) !important;
-    }
+/* ── Tabs ── */
+.stTabs [data-baseweb="tab-list"] {
+    background: transparent;
+    border-bottom: 1px solid #1e1e2e;
+    gap: 0;
+}
+.stTabs [data-baseweb="tab"] {
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0;
+}
+.stTabs [aria-selected="true"] {
+    color: #ffffff !important;
+    border-bottom: 2px solid #6366f1 !important;
+    background: transparent !important;
+}
 
-    /* Custom Tags */
-    .badge {
-        padding: 4px 12px;
-        border-radius: 99px;
-        font-weight: 600;
-        font-size: 0.75rem;
-        letter-spacing: 0.5px;
-        display: inline-flex;
-        align-items: center;
-        margin-right: 8px;
-    }
-    .badge-primary { background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.2); }
-    .badge-success { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
-    .badge-warning { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
+/* ── Expanders (job cards) ── */
+div[data-testid="stExpander"] {
+    background: #111120 !important;
+    border: 1px solid #1e1e2e !important;
+    border-radius: 10px !important;
+    margin-bottom: 10px !important;
+}
+div[data-testid="stExpander"]:hover {
+    border-color: #6366f1 !important;
+}
+.st-expander-content { padding: 1rem 1.5rem; }
 
-    /* Score Indicator */
-    .score-circle {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 800;
-        font-family: 'Outfit', sans-serif;
-        font-size: 1.2rem;
-    }
+/* ── Buttons ── */
+.stLinkButton a {
+    background: #6366f1 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-size: 0.8rem !important;
+    padding: 0.4rem 1rem !important;
+    font-weight: 600 !important;
+}
+.stLinkButton a:hover { background: #4f46e5 !important; }
 
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #030712 !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    
-    /* Buttons */
-    .stButton>button {
-        border-radius: 12px !important;
-        font-weight: 600 !important;
-        padding: 0.6rem 1.2rem !important;
-        transition: all 0.2s ease !important;
-    }
-    .stButton>button:hover {
-        transform: scale(1.02);
-        box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
-    }
+/* ── Score pill ── */
+.score-pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-right: 8px;
+}
+.score-high   { background: #14532d; color: #4ade80; }
+.score-mid    { background: #1e1b4b; color: #a5b4fc; }
+.score-low    { background: #451a03; color: #fbbf24; }
 
-    /* Info boxes */
-    .stAlert {
-        border-radius: 16px !important;
-        background-color: rgba(31, 41, 55, 0.6) !important;
-        border: 1px solid rgba(255, 255, 255, 0.05) !important;
-    }
+/* ── Tag pill ── */
+.tag {
+    display: inline-block;
+    background: #1e1e2e;
+    color: #94a3b8;
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    margin: 2px;
+    border: 1px solid #2d2d45;
+}
+
+/* ── Dataframe ── */
+[data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; }
+
+/* ── Divider ── */
+hr { border-color: #1e1e2e; }
+
+/* ── Altair chart bg ── */
+.vega-embed { background: transparent !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- SESSION STATE ---
-if 'all_jobs' not in st.session_state:
-    st.session_state.all_jobs = []
-if 'last_run' not in st.session_state:
-    st.session_state.last_run = False
 
-# --- PIPELINE LOGIC ---
-def run_pipeline():
-    with st.spinner("✨ Running AI Engine..."):
-        try:
-            strong, maybe = get_jobs()
-            st.session_state.all_jobs = strong + maybe
-            st.session_state.last_run = True
-        except Exception as e:
-            st.error(f"Pipeline failed: {e}")
+# ── Data ─────────────────────────────────────────────────────────────────────
+@st.cache_data(ttl=30)
+def load_data():
+    try:
+        return get_all_scored_jobs()
+    except Exception as e:
+        st.error(f"Database error: {e}")
+        return []
 
-# --- SIDEBAR ---
-with st.sidebar:
-    st.markdown("<h1 style='font-family:Outfit; font-weight:800; font-size:2rem; margin-bottom:0'>ApplyPilot</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color:#94a3b8; font-size:0.9rem; margin-bottom:2rem'>Your Career Co-Pilot</p>", unsafe_allow_html=True)
-    
-    if st.button("🚀 INITIATE ANALYSIS", use_container_width=True, type="primary"):
-        run_pipeline()
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.subheader("Filter Suite")
-    min_score = st.select_slider("Minimum Fit Score", options=list(range(11)), value=5)
-    search_query = st.text_input("Keywords", placeholder="Title, Tech, Location...")
-    
-    available_sites = ["All Sources"]
-    if st.session_state.all_jobs:
-        available_sites += sorted(list(set(j.get('site', 'Unknown') for j in st.session_state.all_jobs)))
-    selected_site = st.selectbox("Market Source", available_sites)
+all_jobs = load_data()
 
-# --- HERO SECTION ---
-st.markdown("<h1 class='main-title'>Job Market Pulse</h1>", unsafe_allow_html=True)
 
-if not st.session_state.last_run:
+# ── Header ───────────────────────────────────────────────────────────────────
+col_logo, col_actions = st.columns([1, 1])
+with col_logo:
     st.markdown("""
-    <div style="background: rgba(99, 102, 241, 0.05); padding: 60px; border-radius: 30px; border: 1px dashed rgba(99, 102, 241, 0.2); text-align: center; margin-top: 40px;">
-        <h2 style="font-family:Outfit; margin-bottom: 15px;">Ready to find your match?</h2>
-        <p style="color: #94a3b8; font-size: 1.1rem; max-width: 500px; margin: 0 auto 30px;">ApplyPilot uses advanced LLMs to analyze 20+ job sources simultaneously against your unique profile.</p>
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:0.5rem">
+        <span style="font-size:1.8rem">🎯</span>
+        <div>
+            <h1 style="margin:0; font-size:1.4rem; font-weight:700; color:#fff">TailoredResume</h1>
+            <p style="margin:0; font-size:0.78rem; color:#64748b">Autonomous Job Discovery & Scoring Engine</p>
+        </div>
     </div>
     """, unsafe_allow_html=True)
-    st.stop()
+with col_actions:
+    st.markdown("""
+    <div style="text-align:right; padding-top:0.5rem">
+        <code style="background:#1e1e2e; color:#a5b4fc; padding:6px 14px; border-radius:8px; font-size:0.8rem">
+            .venv/Scripts/python.exe main.py run
+        </code>
+    </div>
+    """, unsafe_allow_html=True)
 
-# --- KEY PERFORMANCE INDICATORS ---
-all_jobs = st.session_state.all_jobs
-strong_jobs = [j for j in all_jobs if j.get('score', 0) >= 7]
+st.markdown("<hr style='margin:0.75rem 0 1.5rem 0'>", unsafe_allow_html=True)
 
-kpi1, kpi2, kpi3 = st.columns(3)
-kpi1.metric("ANALYZED", len(all_jobs))
-kpi2.metric("HIGH MATCH", len(strong_jobs))
-avg_s = round(sum(j.get('score', 0) for j in all_jobs) / max(len(all_jobs), 1), 1)
-kpi3.metric("AVG FIT", f"{avg_s}/10")
 
-st.markdown("<br>", unsafe_allow_html=True)
+# ── KPI Row ──────────────────────────────────────────────────────────────────
+if all_jobs:
+    strong = [j for j in all_jobs if j.get("score", 0) >= 7]
+    maybe  = [j for j in all_jobs if 4 <= j.get("score", 0) < 7]
+    avg_score = round(sum(j.get("score", 0) for j in all_jobs) / max(len(all_jobs), 1), 1)
+    pending = len([j for j in all_jobs if not j.get("score")])
 
-# --- DATA VISUALIZATION ---
-chart_col, table_col = st.columns([2, 1])
-
-with chart_col:
-    st.subheader("Fit Distribution")
-    df = pd.DataFrame([j.get('score', 0) for j in all_jobs], columns=['score'])
-    score_counts = df['score'].value_counts().reset_index()
-    score_counts.columns = ['score', 'count']
-    
-    chart = alt.Chart(score_counts).mark_bar(
-        cornerRadiusTopLeft=8, cornerRadiusTopRight=8, size=35
-    ).encode(
-        x=alt.X('score:O', title=None, axis=alt.Axis(labelAngle=0)),
-        y=alt.Y('count:Q', title=None),
-        color=alt.condition(
-            alt.datum.score >= 7,
-            alt.value('#10b981'),
-            alt.value('#6366f1')
-        ),
-        tooltip=['score', 'count']
-    ).configure_view(strokeWidth=0).properties(height=250)
-    st.altair_chart(chart, use_container_width=True)
-
-with table_col:
-    st.subheader("Source Breakdown")
-    site_df = pd.DataFrame([j.get('site', 'Unknown') for j in all_jobs], columns=['Source'])
-    top_sources = site_df['Source'].value_counts().reset_index()
-    top_sources.columns = ['Source', 'Count']
-    st.dataframe(top_sources, use_container_width=True, hide_index=True)
-
-st.markdown("---")
-
-# --- RESULTS ENGINE ---
-filtered = [
-    j for j in all_jobs 
-    if j.get('score', 0) >= min_score
-    and (search_query.lower() in j.get('title', '').lower() or 
-         search_query.lower() in j.get('company', '').lower())
-    and (selected_site == "All Sources" or j.get('site') == selected_site)
-]
-
-st.markdown(f"<h3 style='margin-bottom:1.5rem'>Found {len(filtered)} matches for you</h3>", unsafe_allow_html=True)
-
-if not filtered:
-    st.warning("No matches found for current filters.")
+    k1, k2, k3, k4, k5 = st.columns(5)
+    k1.metric("Total Jobs", f"{len(all_jobs):,}")
+    k2.metric("Strong Match", f"{len(strong):,}", delta=f"≥7/10")
+    k3.metric("Maybe", f"{len(maybe):,}", delta=f"4–6/10")
+    k4.metric("Avg Score", f"{avg_score}/10")
+    k5.metric("Unscored", f"{pending:,}")
 else:
-    # Grouping logic
-    scores = sorted(list(set(j.get('score', 0) for j in filtered)), reverse=True)
-    
-    for score in scores:
-        group = [j for j in filtered if j.get('score', 0) == score]
-        
-        # Color logic
-        s_color = "#10b981" if score >= 8 else ("#6366f1" if score >= 6 else "#f59e0b")
-        s_bg = f"{s_color}22"
-        
-        st.markdown(f"""
-            <div style="display:flex; align-items:center; gap:12px; margin: 2rem 0 1rem 0">
-                <div class="score-circle" style="background:{s_color}; color:#030712">{score}</div>
-                <h3 style="margin:0; font-family:Outfit">{ 'Elite' if score >= 9 else ('Strong' if score >= 7 else 'Potential') } Match Pool</h3>
-                <span style="color:#94a3b8; font-size:0.9rem">({len(group)} items)</span>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        for job in group:
-            with st.expander(f"**{job['title']}** @ {job.get('company', 'Unknown')}"):
-                c_main, c_side = st.columns([4, 1])
-                
-                with c_main:
-                    # Metadata row
-                    meta_html = f"""
-                        <div style="margin-bottom:15px">
-                            <span class="badge badge-primary">{job.get('site', 'Web')}</span>
-                            <span class="badge badge-success">{job.get('salary') or 'Competitive'}</span>
-                            <span class="badge badge-warning">{job.get('location') or 'Remote'}</span>
-                        </div>
-                    """
-                    st.markdown(meta_html, unsafe_allow_html=True)
-                    
-                    st.markdown(f"<p style='color:#cbd5e1; line-height:1.6'><b>AI Insight:</b> {job.get('reason', 'N/A')}</p>", unsafe_allow_html=True)
-                    
-                    if job.get('description'):
-                        with st.container():
-                            st.markdown("<p style='color:#64748b; font-size:0.85rem'>Preview:</p>", unsafe_allow_html=True)
-                            st.write(job['description'][:350] + "...")
-                
-                with c_side:
-                    st.link_button("View Job", job.get('url', '#'), use_container_width=True)
-                    st.markdown(f"<p style='text-align:center; margin-top:15px; font-weight:800; font-size:1.1rem; color:{s_color}'>{score}/10</p>", unsafe_allow_html=True)
-                    st.progress(score / 10)
+    st.info("No scored jobs yet. Run the pipeline to get started.")
 
+
+# ── Tabs ─────────────────────────────────────────────────────────────────────
+tab_jobs, tab_analytics = st.tabs(["  Jobs  ", "  Analytics  "])
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# TAB 1: JOBS
+# ════════════════════════════════════════════════════════════════════════════
+with tab_jobs:
+    if not all_jobs:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("""
+        <div style="text-align:center; padding:4rem; color:#64748b">
+            <div style="font-size:3rem; margin-bottom:1rem">🔍</div>
+            <h3 style="color:#94a3b8; margin-bottom:0.5rem">No jobs found</h3>
+            <p>Run the pipeline to start discovering jobs</p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        # ── Filters bar ─────────────────────────────────────────────────────
+        fc1, fc2, fc3, fc4 = st.columns([3, 1, 1, 1])
+        with fc1:
+            q = st.text_input("Search", placeholder="🔍  Search title, company...", label_visibility="collapsed")
+        with fc2:
+            min_s = st.selectbox("Min Score", list(range(11)), index=4, label_visibility="collapsed")
+        with fc3:
+            sources = ["All Sources"] + sorted(set(j.get("site","?") for j in all_jobs if j.get("site")))
+            site_filter = st.selectbox("Source", sources, label_visibility="collapsed")
+        with fc4:
+            verdict_opts = ["All Verdicts", "yes", "maybe", "no"]
+            verdict_filter = st.selectbox("Verdict", verdict_opts, label_visibility="collapsed")
+
+        # ── Apply filters ───────────────────────────────────────────────────
+        filtered = [
+            j for j in all_jobs
+            if j.get("score", 0) >= min_s
+            and (not q or q.lower() in (j.get("title","") + j.get("company","")).lower())
+            and (site_filter == "All Sources" or j.get("site") == site_filter)
+            and (verdict_filter == "All Verdicts" or j.get("verdict") == verdict_filter)
+        ]
+
+        st.markdown(
+            f"<p style='color:#64748b; font-size:0.82rem; margin:0.75rem 0'>"
+            f"Showing <b style='color:#fff'>{len(filtered)}</b> of {len(all_jobs)} jobs</p>",
+            unsafe_allow_html=True
+        )
+
+        # ── Job list ────────────────────────────────────────────────────────
+        for job in filtered:
+            score = job.get("score", 0)
+            verdict = job.get("verdict", "no")
+
+            if score >= 7:
+                pill_cls = "score-high"
+            elif score >= 4:
+                pill_cls = "score-mid"
+            else:
+                pill_cls = "score-low"
+
+            verdict_icon = {"yes": "✅", "maybe": "⚡", "no": "❌"}.get(verdict, "—")
+
+            label_html = (
+                f"<div style='display:flex; align-items:center; width:100%'>"
+                f"<span class='score-pill {pill_cls}' style='min-width:50px; text-align:center'>{score}</span>"
+                f"<span style='font-size:1.1rem; font-weight:600; color:#fff; margin-left:10px'>{job.get('title','?')}</span>"
+                f"<span style='color:#64748b; font-size:0.9rem; margin-left:auto; margin-right:20px'>{job.get('company','?')}</span>"
+                f"</div>"
+            )
+
+            with st.expander(label_html, expanded=False):
+                left, right = st.columns([5, 1])
+                with left:
+                    # Meta tags
+                    loc = job.get("location") or "Remote"
+                    sal = job.get("salary") or "—"
+                    src = job.get("site") or "Web"
+                    dt  = job.get("date_posted") or "—"
+                    st.markdown(
+                        f"<span class='tag'>📍 {loc}</span>"
+                        f"<span class='tag'>💰 {sal}</span>"
+                        f"<span class='tag'>🌐 {src}</span>"
+                        f"<span class='tag'>📅 {dt}</span>",
+                        unsafe_allow_html=True
+                    )
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    reason = job.get("reason", "No AI insight available.")
+                    st.markdown(
+                        f"<p style='color:#94a3b8; font-size:0.875rem; line-height:1.7; margin:0'>"
+                        f"<b style='color:#cbd5e1'>AI Insight:</b> {reason}</p>",
+                        unsafe_allow_html=True
+                    )
+                with right:
+                    url = job.get("url", "#")
+                    if url and url != "#":
+                        st.link_button("Open Job →", url, width="stretch")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# TAB 2: ANALYTICS
+# ════════════════════════════════════════════════════════════════════════════
+with tab_analytics:
+    if not all_jobs:
+        st.info("No data yet.")
+    else:
+        chart_col, dist_col = st.columns([3, 2])
+
+        with chart_col:
+            st.markdown("#### Score Distribution")
+            df_scores = pd.DataFrame(all_jobs)
+            df_scores["score"] = df_scores["score"].fillna(0).astype(int)
+            counts = df_scores["score"].value_counts().reset_index()
+            counts.columns = ["score", "count"]
+
+            chart = alt.Chart(counts).mark_bar(
+                cornerRadiusTopLeft=4,
+                cornerRadiusTopRight=4,
+            ).encode(
+                x=alt.X("score:O", title="Score", axis=alt.Axis(labelAngle=0, labelColor="#64748b", titleColor="#64748b")),
+                y=alt.Y("count:Q", title="Jobs",  axis=alt.Axis(labelColor="#64748b", titleColor="#64748b")),
+                color=alt.condition(
+                    alt.datum.score >= 7,
+                    alt.value("#6366f1"),  # High score
+                    alt.value("#1e293b")   # Others
+                ),
+                tooltip=["score:O", "count:Q"]
+            ).configure_view(
+                strokeWidth=0,
+                fill="#0a0a0f"
+            ).configure_axis(
+                grid=False,
+                domain=False,
+            ).properties(height=260)
+
+            st.altair_chart(chart, width="stretch")
+
+        with dist_col:
+            st.markdown("#### By Source")
+            site_counts = (
+                pd.DataFrame(all_jobs)
+                .assign(site=lambda d: d["site"].fillna("Unknown"))
+                ["site"].value_counts()
+                .reset_index()
+            )
+            site_counts.columns = ["Source", "Count"]
+            st.dataframe(
+                site_counts,
+                width="stretch",
+                hide_index=True,
+                height=290,
+            )
+
+        st.markdown("<hr>", unsafe_allow_html=True)
+
+        # Verdict breakdown
+        v1, v2 = st.columns(2)
+        with v1:
+            st.markdown("#### Verdict Breakdown")
+            v_df = (
+                pd.DataFrame(all_jobs)
+                .assign(verdict=lambda d: d["verdict"].fillna("unscored"))
+                ["verdict"].value_counts()
+                .reset_index()
+            )
+            v_df.columns = ["Verdict", "Count"]
+            v_df["Verdict"] = v_df["Verdict"].map(
+                {"yes": "✅ Strong", "maybe": "⚡ Maybe", "no": "❌ No Fit", "unscored": "⏳ Pending"}
+            ).fillna(v_df["Verdict"])
+            st.dataframe(v_df, width="stretch", hide_index=True)
+
+        with v2:
+            st.markdown("#### Top Companies")
+            top_co = (
+                pd.DataFrame(all_jobs)
+                .assign(company=lambda d: d["company"].fillna("Unknown"))
+                ["company"].value_counts()
+                .head(10)
+                .reset_index()
+            )
+            top_co.columns = ["Company", "Jobs"]
+            st.dataframe(top_co, width="stretch", hide_index=True)

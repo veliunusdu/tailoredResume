@@ -1,9 +1,13 @@
 requests
 python-dotenv
 openai
-google-generativeai
 pytest
 pytest-mock
 requests-mock
 pytest-cov
 streamlit
+python-jobspy
+pyyaml
+beautifulsoup4
+litellm
+playwright

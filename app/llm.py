@@ -4,9 +4,10 @@ llm.py — all LLM calls live here.
 This module knows nothing about jobs specifically.
 It takes a prompt string and returns a parsed dict.
 """
+import os
 import json
 from typing import Any
-import google.generativeai as genai
+import litellm
 from app.config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
@@ -22,8 +23,8 @@ from app.utils import retry, RateLimiter
 
 _logger = get_logger(__name__)
 
-genai.configure(api_key=GEMINI_API_KEY)
-_model = genai.GenerativeModel(GEMINI_MODEL)
+# Ensure API key is in environment for litellm
+os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
 
 _rate_limiter = RateLimiter(LLM_MIN_INTERVAL_SEC)
 
@@ -81,8 +82,21 @@ Commit to a verdict first. Score 8-10 = strong match, 4-7 = possible, 0-3 = not 
 def _call_llm_raw(user_prompt: str, is_batch: bool = False) -> Any:
     _rate_limiter.wait()
     sys_prompt = _SYSTEM_PROMPT_BATCH if is_batch else _SYSTEM_PROMPT_SINGLE
-    response = _model.generate_content(f"{sys_prompt}\n\n{user_prompt}")
-    raw = (response.text or "").strip()
+    
+    # Prefix with gemini/ for litellm routing if it's a gemini model
+    model_name = GEMINI_MODEL
+    if "gemini" in model_name and not model_name.startswith("gemini/"):
+        model_name = f"gemini/{model_name}"
+        
+    response = litellm.completion(
+        model=model_name,
+        messages=[
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+    )
+    raw = (response.choices[0].message.content or "").strip()
+    
     if not raw:
         raise ValueError("Empty response from LLM")
 
