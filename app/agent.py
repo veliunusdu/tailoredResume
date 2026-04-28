@@ -27,7 +27,7 @@ def _print_job(job: dict) -> None:
     print()
 
 
-def run() -> None:
+def get_jobs() -> tuple[list[dict], list[dict]]:
     _logger.info("Agent run started")
 
     # 1 — Fetch
@@ -35,7 +35,7 @@ def run() -> None:
 
     # 2 — Rule-based filter + normalize
     filtered = filter_jobs(raw_jobs)
-    print(f"Fetched {len(raw_jobs)} → rule-filtered {len(filtered)} → scoring with AI...\n")
+    _logger.info("Fetched %s raw jobs, rule-filtered to %s", len(raw_jobs), len(filtered))
 
     # 3 — LLM scoring
     strong, maybe = [], []
@@ -56,7 +56,6 @@ def run() -> None:
             uncached_jobs.append(job)
 
     _logger.info("Found %s uncached jobs to score (%s cache hits)", len(uncached_jobs), cache_hits)
-    print(f"  🧠 Found {len(uncached_jobs)} jobs to score ({cache_hits} cache hits)")
 
     if uncached_jobs:
         batches = [
@@ -64,7 +63,7 @@ def run() -> None:
             for i in range(0, len(uncached_jobs), LLM_BATCH_SIZE)
         ]
         
-        _logger.info("Processing %s batches of up to %s jobs each with %s max concurrent workers.", len(batches), LLM_BATCH_SIZE, LLM_MAX_CONCURRENT_BATCHES)
+        _logger.info("Processing %s batches of up to %s jobs each.", len(batches), LLM_BATCH_SIZE)
         
         def process_batch(batch):
             results = score_jobs_batch(batch)
@@ -87,6 +86,25 @@ def run() -> None:
                 except Exception as exc:
                     _logger.error("Batch processing failed: %s", exc)
 
+    # Sort by score descending
+    strong.sort(key=lambda x: x.get("score", 0), reverse=True)
+    maybe.sort(key=lambda x: x.get("score", 0), reverse=True)
+
+    _logger.info(
+        "Agent run completed: raw=%s filtered=%s strong=%s maybe=%s",
+        len(raw_jobs),
+        len(filtered),
+        len(strong),
+        len(maybe),
+    )
+    return strong, maybe
+
+
+def run() -> None:
+    _logger.info("Agent CLI run started")
+    
+    strong, maybe = get_jobs()
+    
     # 4 — Output
     print(f"{'='*55}")
     print(f"  ✅ STRONG MATCHES ({len(strong)})")
@@ -99,11 +117,3 @@ def run() -> None:
     print(f"{'='*55}")
     for job in maybe:
         _print_job(job)
-
-    _logger.info(
-        "Agent run completed: raw=%s filtered=%s strong=%s maybe=%s",
-        len(raw_jobs),
-        len(filtered),
-        len(strong),
-        len(maybe),
-    )

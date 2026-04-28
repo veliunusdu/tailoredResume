@@ -26,8 +26,15 @@ def _fetch_jobs_remote() -> list[dict]:
     response = requests.get(JOB_API_URL, params=params, timeout=HTTP_TIMEOUT_SEC)
     response.raise_for_status()
     data = response.json().get("jobs", [])
+    
     if not isinstance(data, list):
-        raise ValueError("Unexpected jobs payload from API")
+        raise ValueError("Unexpected jobs payload from API: expected a list of jobs")
+    
+    # Basic schema check for the first few items to catch unexpected format changes
+    for i, job in enumerate(data[:5]):
+        if not isinstance(job, dict):
+            raise ValueError(f"Job at index {i} is not a dictionary")
+            
     return data
 
 
