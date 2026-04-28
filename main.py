@@ -1,19 +1,25 @@
 import argparse
-import app.config as config
-from app.agent import run
+import sys
+from app.agent import run as run_agent
+from app.init import run_init
 
 def main():
-    parser = argparse.ArgumentParser(description="Tailored Resume - AI Job Agent")
-    parser.add_argument("--category", type=str, default=config.JOB_CATEGORY, help="Job category to search for (e.g., software-dev, data)")
-    parser.add_argument("--limit", type=int, default=config.JOB_LIMIT, help="Maximum number of jobs to fetch")
+    parser = argparse.ArgumentParser(description="Tailored Resume - 6-Stage Autonomous Pipeline")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    
+    # Init command
+    init_parser = subparsers.add_parser("init", help="Run the interactive setup wizard")
+    
+    # Run command
+    run_parser = subparsers.add_parser("run", help="Run the job aggregation and application pipeline")
     
     args = parser.parse_args()
     
-    # Override config with CLI arguments before running
-    config.JOB_CATEGORY = args.category
-    config.JOB_LIMIT = args.limit
-    
-    run()
+    if args.command == "init":
+        run_init()
+    elif args.command == "run":
+        run_agent()
 
 if __name__ == "__main__":
     main()
+

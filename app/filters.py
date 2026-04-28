@@ -11,19 +11,36 @@ ALLOWLIST = [
 
 def _normalize(raw: dict) -> dict:
     """Map raw API fields to a consistent internal shape."""
-    pub_date = raw.get("publication_date")
-    date_posted = str(pub_date)[:10] if pub_date else ""
+    source = raw.get("source_type", "remotive")
     
-    return {
-        "title":       str(raw.get("title") or "Unknown Title"),
-        "company":     str(raw.get("company_name") or "Unknown Company"),
-        "location":    str(raw.get("candidate_required_location") or "Remote"),
-        "url":         str(raw.get("url") or ""),
-        "date_posted": date_posted,
-        "salary":      str(raw.get("salary") or "Not listed"),
-        "tags":        list(raw.get("tags") or []),
-        "description": str(raw.get("description") or ""),
-    }
+    if source == "remotive":
+        pub_date = raw.get("publication_date")
+        date_posted = str(pub_date)[:10] if pub_date else ""
+        return {
+            "title":       str(raw.get("title") or "Unknown Title"),
+            "company":     str(raw.get("company_name") or "Unknown Company"),
+            "location":    str(raw.get("candidate_required_location") or "Remote"),
+            "url":         str(raw.get("url") or ""),
+            "date_posted": date_posted,
+            "salary":      str(raw.get("salary") or "Not listed"),
+            "tags":        list(raw.get("tags") or []),
+            "description": str(raw.get("description") or ""),
+            "site":        "Remotive",
+        }
+    else:
+        # JobSpy normalization
+        # Fields: title, company, location, job_url, date_posted, salary_source, description, site
+        return {
+            "title":       str(raw.get("title") or "Unknown Title"),
+            "company":     str(raw.get("company") or "Unknown Company"),
+            "location":    str(raw.get("location") or "Remote"),
+            "url":         str(raw.get("job_url") or ""),
+            "date_posted": str(raw.get("date_posted") or ""),
+            "salary":      str(raw.get("salary_source") or "Not listed"),
+            "tags":        [], # Jobspy doesn't provide consistent tags
+            "description": str(raw.get("description") or ""),
+            "site":        str(raw.get("site") or "Web").title(),
+        }
 
 
 def filter_jobs(jobs: list[dict]) -> list[dict]:
