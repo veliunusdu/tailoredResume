@@ -37,8 +37,22 @@ def init_db():
                 reason TEXT
             )
         ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS apply_attempts (
+                id          TEXT PRIMARY KEY,
+                job_id      TEXT REFERENCES jobs(id),
+                status      TEXT CHECK(status IN ('queued','running','success','failed','manual_required')),
+                job_board   TEXT,
+                dry_run     INTEGER DEFAULT 1,
+                error_msg   TEXT,
+                screenshot  TEXT,
+                applied_at  REAL,
+                created_at  REAL
+            )
+        ''')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_jobs_score ON jobs(score DESC)')
         conn.execute('CREATE INDEX IF NOT EXISTS idx_jobs_fetched_at ON jobs(fetched_at DESC)')
+        conn.execute('CREATE INDEX IF NOT EXISTS idx_apply_attempts_job_id ON apply_attempts(job_id)')
 
 
 @contextmanager
@@ -147,6 +161,17 @@ def get_all_scored_jobs() -> list[dict]:
             jobs.append(d)
         return jobs
 
+def get_job_by_id(job_id: str) -> dict | None:
+    """Retrieve a single job by its ID."""
+    with get_connection() as conn:
+        cursor = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
+        row = cursor.fetchone()
+        if row:
+            d = dict(row)
+            d["tags"] = json.loads(d["tags"]) if d["tags"] else []
+            return d
+        return None
+
 def should_fetch_jobs() -> bool:
     """Check if we need to fetch new jobs based on TTL."""
     with get_connection() as conn:
@@ -173,3 +198,67 @@ def get_cached_llm_score(cache_key: str) -> dict | None:
 
 def set_cached_llm_score(cache_key: str, result: dict) -> None:
     pass
+
+
+# ── Apply Queue Functions ─────────────────────────────────────────────────────
+
+def queue_apply(job_id: str, dry_run: bool = True) -> str:
+    """Insert a new apply attempt with status='queued'. Returns the attempt ID."""
+    import uuid
+    attempt_id = str(uuid.uuid4())
+    now = time.time()
+    with get_connection() as conn:
+        conn.execute('''
+            INSERT INTO apply_attempts (id, job_id, status, dry_run, created_at)
+            VALUES (?, ?, 'queued', ?, ?)
+        ''', (attempt_id, job_id, 1 if dry_run else 0, now))
+        conn.commit()
+    return attempt_id
+
+
+def update_apply_status(
+    attempt_id: str,
+    status: str,
+    job_board: str = None,
+    error_msg: str = None,
+    screenshot: str = None,
+) -> None:
+    """Update the status of an apply attempt."""
+    now = time.time()
+    applied_at = now if status in ("success", "failed", "manual_required") else None
+    with get_connection() as conn:
+        conn.execute('''
+            UPDATE apply_attempts
+            SET status = ?, job_board = ?, error_msg = ?, screenshot = ?, applied_at = ?
+            WHERE id = ?
+        ''', (status, job_board, error_msg, screenshot, applied_at, attempt_id))
+        conn.commit()
+
+
+def get_apply_attempts(job_id: str) -> list[dict]:
+    """Return all apply attempts for a given job, newest first."""
+    with get_connection() as conn:
+        cursor = conn.execute(
+            'SELECT * FROM apply_attempts WHERE job_id = ? ORDER BY created_at DESC',
+            (job_id,)
+        )
+        return [dict(row) for row in cursor]
+
+
+def get_all_apply_attempts() -> list[dict]:
+    """Return all apply attempts across all jobs, newest first."""
+    with get_connection() as conn:
+        cursor = conn.execute(
+            'SELECT * FROM apply_attempts ORDER BY created_at DESC LIMIT 100'
+        )
+        return [dict(row) for row in cursor]
+
+
+def get_apply_attempt(attempt_id: str) -> dict | None:
+    """Return a single apply attempt by ID."""
+    with get_connection() as conn:
+        row = conn.execute(
+            'SELECT * FROM apply_attempts WHERE id = ?', (attempt_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
