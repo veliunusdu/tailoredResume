@@ -8,6 +8,7 @@ load_dotenv()
 # ── API ───────────────────────────────────────────────────────────────────────
 GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR         = Path(__file__).resolve().parents[1]
