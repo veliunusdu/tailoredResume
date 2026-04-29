@@ -1,5 +1,6 @@
 import argparse
 import sys
+import uvicorn
 from app.agent import run as run_agent
 from app.init import run_init
 
@@ -12,6 +13,10 @@ def main():
     
     # Run command
     run_parser = subparsers.add_parser("run", help="Run the job aggregation and application pipeline")
+
+    # Dashboard command
+    dashboard_parser = subparsers.add_parser("dashboard", help="Start the Next.js backend API")
+    dashboard_parser.add_argument("--port", type=int, default=8000, help="Port for the API")
     
     args = parser.parse_args()
     
@@ -19,7 +24,11 @@ def main():
         run_init()
     elif args.command == "run":
         run_agent()
+    elif args.command == "dashboard":
+        # Import app here to avoid requiring all dependencies for other commands
+        from app.api import app
+        print(f"🚀 Starting Dashboard API on http://localhost:{args.port}")
+        uvicorn.run(app, host="0.0.0.0", port=args.port)
 
 if __name__ == "__main__":
     main()
-

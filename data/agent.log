@@ -6552,3 +6552,768 @@ ValueError: Job at index 0 is not a dictionary
 2026-04-28 18:09:45 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
 2026-04-28 18:10:47 | INFO | app.agent | Processing 61 batches of up to 5 jobs each.
 2026-04-28 18:15:15 | INFO | app.agent | Agent run completed: strong=203 maybe=220
+2026-04-29 10:56:39 | INFO | app.agent | Agent CLI run started
+2026-04-29 10:56:39 | INFO | app.agent | Agent run started
+2026-04-29 10:56:40 | INFO | app.jobs | Initializing search for 46 combinations...
+2026-04-29 10:57:10 | ERROR | app.jobs | JobSpy fetch failed for software engineer: Invalid country string: 'myanmar'. Valid countries are: argentina, australia, austria, bahrain, bangladesh, belgium, bulgaria, brazil, canada, chile, china, colombia, costa rica, croatia, cyprus, czech republic,czechia, denmark, ecuador, egypt, estonia, finland, france, germany, greece, hong kong, hungary, india, indonesia, ireland, israel, italy, japan, kuwait, latvia, lithuania, luxembourg, malaysia, malta, mexico, morocco, netherlands, new zealand, nigeria, norway, oman, pakistan, panama, peru, philippines, poland, portugal, qatar, romania, saudi arabia, singapore, slovakia, slovenia, south africa, south korea, spain, sweden, switzerland, taiwan, thailand, türkiye,turkey, ukraine, united arab emirates, uk,united kingdom, usa,us,united states, uruguay, venezuela, vietnam, usa/ca, worldwide
+2026-04-29 10:57:14 | ERROR | app.jobs | JobSpy fetch failed for full stack developer: Invalid country string: 'dominican republic'. Valid countries are: argentina, australia, austria, bahrain, bangladesh, belgium, bulgaria, brazil, canada, chile, china, colombia, costa rica, croatia, cyprus, czech republic,czechia, denmark, ecuador, egypt, estonia, finland, france, germany, greece, hong kong, hungary, india, indonesia, ireland, israel, italy, japan, kuwait, latvia, lithuania, luxembourg, malaysia, malta, mexico, morocco, netherlands, new zealand, nigeria, norway, oman, pakistan, panama, peru, philippines, poland, portugal, qatar, romania, saudi arabia, singapore, slovakia, slovenia, south africa, south korea, spain, sweden, switzerland, taiwan, thailand, türkiye,turkey, ukraine, united arab emirates, uk,united kingdom, usa,us,united states, uruguay, venezuela, vietnam, usa/ca, worldwide
+2026-04-29 10:57:39 | ERROR | app.jobs | JobSpy fetch failed for full stack engineer: Invalid country string: 'dominican republic'. Valid countries are: argentina, australia, austria, bahrain, bangladesh, belgium, bulgaria, brazil, canada, chile, china, colombia, costa rica, croatia, cyprus, czech republic,czechia, denmark, ecuador, egypt, estonia, finland, france, germany, greece, hong kong, hungary, india, indonesia, ireland, israel, italy, japan, kuwait, latvia, lithuania, luxembourg, malaysia, malta, mexico, morocco, netherlands, new zealand, nigeria, norway, oman, pakistan, panama, peru, philippines, poland, portugal, qatar, romania, saudi arabia, singapore, slovakia, slovenia, south africa, south korea, spain, sweden, switzerland, taiwan, thailand, türkiye,turkey, ukraine, united arab emirates, uk,united kingdom, usa,us,united states, uruguay, venezuela, vietnam, usa/ca, worldwide
+2026-04-29 10:58:08 | ERROR | app.jobs | JobSpy fetch failed for python engineer: Invalid country string: 'sri lanka'. Valid countries are: argentina, australia, austria, bahrain, bangladesh, belgium, bulgaria, brazil, canada, chile, china, colombia, costa rica, croatia, cyprus, czech republic,czechia, denmark, ecuador, egypt, estonia, finland, france, germany, greece, hong kong, hungary, india, indonesia, ireland, israel, italy, japan, kuwait, latvia, lithuania, luxembourg, malaysia, malta, mexico, morocco, netherlands, new zealand, nigeria, norway, oman, pakistan, panama, peru, philippines, poland, portugal, qatar, romania, saudi arabia, singapore, slovakia, slovenia, south africa, south korea, spain, sweden, switzerland, taiwan, thailand, türkiye,turkey, ukraine, united arab emirates, uk,united kingdom, usa,us,united states, uruguay, venezuela, vietnam, usa/ca, worldwide
+2026-04-29 10:58:54 | ERROR | app.jobs | JobSpy fetch failed for site reliability engineer: Invalid country string: 'nepal'. Valid countries are: argentina, australia, austria, bahrain, bangladesh, belgium, bulgaria, brazil, canada, chile, china, colombia, costa rica, croatia, cyprus, czech republic,czechia, denmark, ecuador, egypt, estonia, finland, france, germany, greece, hong kong, hungary, india, indonesia, ireland, israel, italy, japan, kuwait, latvia, lithuania, luxembourg, malaysia, malta, mexico, morocco, netherlands, new zealand, nigeria, norway, oman, pakistan, panama, peru, philippines, poland, portugal, qatar, romania, saudi arabia, singapore, slovakia, slovenia, south africa, south korea, spain, sweden, switzerland, taiwan, thailand, türkiye,turkey, ukraine, united arab emirates, uk,united kingdom, usa,us,united states, uruguay, venezuela, vietnam, usa/ca, worldwide
+2026-04-29 11:00:54 | ERROR | app.jobs | JobSpy fetch failed for software developer: Invalid country string: 'myanmar'. Valid countries are: argentina, australia, austria, bahrain, bangladesh, belgium, bulgaria, brazil, canada, chile, china, colombia, costa rica, croatia, cyprus, czech republic,czechia, denmark, ecuador, egypt, estonia, finland, france, germany, greece, hong kong, hungary, india, indonesia, ireland, israel, italy, japan, kuwait, latvia, lithuania, luxembourg, malaysia, malta, mexico, morocco, netherlands, new zealand, nigeria, norway, oman, pakistan, panama, peru, philippines, poland, portugal, qatar, romania, saudi arabia, singapore, slovakia, slovenia, south africa, south korea, spain, sweden, switzerland, taiwan, thailand, türkiye,turkey, ukraine, united arab emirates, uk,united kingdom, usa,us,united states, uruguay, venezuela, vietnam, usa/ca, worldwide
+2026-04-29 11:01:06 | ERROR | app.jobs | JobSpy fetch failed for developer: Invalid country string: 'kosovo'. Valid countries are: argentina, australia, austria, bahrain, bangladesh, belgium, bulgaria, brazil, canada, chile, china, colombia, costa rica, croatia, cyprus, czech republic,czechia, denmark, ecuador, egypt, estonia, finland, france, germany, greece, hong kong, hungary, india, indonesia, ireland, israel, italy, japan, kuwait, latvia, lithuania, luxembourg, malaysia, malta, mexico, morocco, netherlands, new zealand, nigeria, norway, oman, pakistan, panama, peru, philippines, poland, portugal, qatar, romania, saudi arabia, singapore, slovakia, slovenia, south africa, south korea, spain, sweden, switzerland, taiwan, thailand, türkiye,turkey, ukraine, united arab emirates, uk,united kingdom, usa,us,united states, uruguay, venezuela, vietnam, usa/ca, worldwide
+2026-04-29 11:01:36 | ERROR | app.jobs | JobSpy fetch failed for automation engineer: Invalid country string: 'namibia'. Valid countries are: argentina, australia, austria, bahrain, bangladesh, belgium, bulgaria, brazil, canada, chile, china, colombia, costa rica, croatia, cyprus, czech republic,czechia, denmark, ecuador, egypt, estonia, finland, france, germany, greece, hong kong, hungary, india, indonesia, ireland, israel, italy, japan, kuwait, latvia, lithuania, luxembourg, malaysia, malta, mexico, morocco, netherlands, new zealand, nigeria, norway, oman, pakistan, panama, peru, philippines, poland, portugal, qatar, romania, saudi arabia, singapore, slovakia, slovenia, south africa, south korea, spain, sweden, switzerland, taiwan, thailand, türkiye,turkey, ukraine, united arab emirates, uk,united kingdom, usa,us,united states, uruguay, venezuela, vietnam, usa/ca, worldwide
+2026-04-29 11:02:27 | ERROR | app.jobs | JobSpy fetch failed for integration engineer: Invalid country string: 'myanmar'. Valid countries are: argentina, australia, austria, bahrain, bangladesh, belgium, bulgaria, brazil, canada, chile, china, colombia, costa rica, croatia, cyprus, czech republic,czechia, denmark, ecuador, egypt, estonia, finland, france, germany, greece, hong kong, hungary, india, indonesia, ireland, israel, italy, japan, kuwait, latvia, lithuania, luxembourg, malaysia, malta, mexico, morocco, netherlands, new zealand, nigeria, norway, oman, pakistan, panama, peru, philippines, poland, portugal, qatar, romania, saudi arabia, singapore, slovakia, slovenia, south africa, south korea, spain, sweden, switzerland, taiwan, thailand, türkiye,turkey, ukraine, united arab emirates, uk,united kingdom, usa,us,united states, uruguay, venezuela, vietnam, usa/ca, worldwide
+2026-04-29 11:04:02 | INFO | app.agent | Fetched 5726 raw jobs, rule-filtered to 1269
+2026-04-29 11:04:02 | INFO | app.agent | Inserted 403 new jobs into the database.
+2026-04-29 11:04:02 | INFO | app.agent | Found 403 unscored jobs in the database.
+2026-04-29 11:04:02 | INFO | app.agent | Enriching descriptions for unscored jobs...
+2026-04-29 11:04:09 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:04:10 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:04:10 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:04:11 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:04:11 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:04:11 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:04:11 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:04:11 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:04:12 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:04:12 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:05:15 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:05:17 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:05:17 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:05:18 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:05:18 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:05:18 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:05:18 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:05:19 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:05:19 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:05:19 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:06:23 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:06:23 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:06:23 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:06:23 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:06:24 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:06:25 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:06:26 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:06:26 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:06:26 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:06:26 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:07:30 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:07:30 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:07:31 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:07:31 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:07:31 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:07:31 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:07:31 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:07:32 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:07:32 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:07:33 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:08:37 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:08:37 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:08:38 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:08:38 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:08:38 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:08:39 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:08:39 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:08:39 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:08:39 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:08:39 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:09:44 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:09:44 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:09:44 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:09:45 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:09:46 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:09:47 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:09:47 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:09:49 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:10:52 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:10:52 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:10:52 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:10:53 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:10:54 | WARNING | app.enrich | fetch_html failed (attempt 1/2): 403 Client Error: Forbidden for url: https://www.indeed.com/viewjob?jk=d5ded49141683a7b. Retrying in 1.0s.
+2026-04-29 11:10:55 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:10:55 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:10:55 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:10:55 | ERROR | app.enrich | fetch_html failed after 2 attempts: 403 Client Error: Forbidden for url: https://www.indeed.com/viewjob?jk=d5ded49141683a7b
+2026-04-29 11:10:55 | WARNING | app.enrich | Enrichment failed for https://www.indeed.com/viewjob?jk=d5ded49141683a7b: 403 Client Error: Forbidden for url: https://www.indeed.com/viewjob?jk=d5ded49141683a7b
+2026-04-29 11:10:55 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:10:58 | WARNING | app.enrich | fetch_html hit rate limit (attempt 1/2). Cooling down for 60.0s.
+2026-04-29 11:11:59 | INFO | app.agent | Processing 81 batches of up to 5 jobs each.
+2026-04-29 11:12:23 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:12:25 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:12:27 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:13:44 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:13:46 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:13:48 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:15:19 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:15:22 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:15:27 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:16:19 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 2/3). Cooling down for 60.0s.
+2026-04-29 11:16:22 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 2/3). Cooling down for 60.0s.
+2026-04-29 11:16:28 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 2/3). Cooling down for 60.0s.
+2026-04-29 11:17:19 | ERROR | app.llm | _call_llm_raw failed after 3 attempts: litellm.RateLimitError: litellm.RateLimitError: geminiException - {
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3-flash\nPlease retry in 40.074150693s.",
+    "status": "RESOURCE_EXHAUSTED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.Help",
+        "links": [
+          {
+            "description": "Learn more about Gemini API quotas",
+            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+        "violations": [
+          {
+            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+            "quotaDimensions": {
+              "location": "global",
+              "model": "gemini-3-flash"
+            },
+            "quotaValue": "20"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+        "retryDelay": "40s"
+      }
+    ]
+  }
+}
+
+2026-04-29 11:17:19 | ERROR | app.llm | Batch LLM call failed: litellm.RateLimitError: litellm.RateLimitError: geminiException - {
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3-flash\nPlease retry in 40.074150693s.",
+    "status": "RESOURCE_EXHAUSTED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.Help",
+        "links": [
+          {
+            "description": "Learn more about Gemini API quotas",
+            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+        "violations": [
+          {
+            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+            "quotaDimensions": {
+              "location": "global",
+              "model": "gemini-3-flash"
+            },
+            "quotaValue": "20"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+        "retryDelay": "40s"
+      }
+    ]
+  }
+}
+. Falling back to per-job scoring.
+2026-04-29 11:17:21 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:17:23 | ERROR | app.llm | _call_llm_raw failed after 3 attempts: litellm.RateLimitError: litellm.RateLimitError: geminiException - {
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3-flash\nPlease retry in 36.282878076s.",
+    "status": "RESOURCE_EXHAUSTED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.Help",
+        "links": [
+          {
+            "description": "Learn more about Gemini API quotas",
+            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+        "violations": [
+          {
+            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+            "quotaDimensions": {
+              "model": "gemini-3-flash",
+              "location": "global"
+            },
+            "quotaValue": "20"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+        "retryDelay": "36s"
+      }
+    ]
+  }
+}
+
+2026-04-29 11:17:23 | ERROR | app.llm | Batch LLM call failed: litellm.RateLimitError: litellm.RateLimitError: geminiException - {
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3-flash\nPlease retry in 36.282878076s.",
+    "status": "RESOURCE_EXHAUSTED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.Help",
+        "links": [
+          {
+            "description": "Learn more about Gemini API quotas",
+            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+        "violations": [
+          {
+            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+            "quotaDimensions": {
+              "model": "gemini-3-flash",
+              "location": "global"
+            },
+            "quotaValue": "20"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+        "retryDelay": "36s"
+      }
+    ]
+  }
+}
+. Falling back to per-job scoring.
+2026-04-29 11:17:25 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:17:28 | ERROR | app.llm | _call_llm_raw failed after 3 attempts: litellm.RateLimitError: litellm.RateLimitError: geminiException - {
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3-flash\nPlease retry in 31.689185032s.",
+    "status": "RESOURCE_EXHAUSTED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.Help",
+        "links": [
+          {
+            "description": "Learn more about Gemini API quotas",
+            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+        "violations": [
+          {
+            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+            "quotaDimensions": {
+              "model": "gemini-3-flash",
+              "location": "global"
+            },
+            "quotaValue": "20"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+        "retryDelay": "31s"
+      }
+    ]
+  }
+}
+
+2026-04-29 11:17:28 | ERROR | app.llm | Batch LLM call failed: litellm.RateLimitError: litellm.RateLimitError: geminiException - {
+  "error": {
+    "code": 429,
+    "message": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3-flash\nPlease retry in 31.689185032s.",
+    "status": "RESOURCE_EXHAUSTED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.Help",
+        "links": [
+          {
+            "description": "Learn more about Gemini API quotas",
+            "url": "https://ai.google.dev/gemini-api/docs/rate-limits"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+        "violations": [
+          {
+            "quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+            "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+            "quotaDimensions": {
+              "model": "gemini-3-flash",
+              "location": "global"
+            },
+            "quotaValue": "20"
+          }
+        ]
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+        "retryDelay": "31s"
+      }
+    ]
+  }
+}
+. Falling back to per-job scoring.
+2026-04-29 11:17:30 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:18:22 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 2/3). Cooling down for 60.0s.
+2026-04-29 11:18:25 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 2/3). Cooling down for 60.0s.
+2026-04-29 11:18:35 | WARNING | app.llm | _call_llm_raw hit rate limit (attempt 1/3). Cooling down for 60.0s.
+2026-04-29 11:23:34 | INFO | app.agent | Agent run completed: strong=253 maybe=296
+2026-04-29 13:13:56 | INFO | app.agent | Agent CLI run started
+2026-04-29 13:13:56 | INFO | app.agent | Agent run started
+2026-04-29 13:13:56 | INFO | app.jobs | Initializing search for 46 combinations...
+2026-04-29 13:15:48 | INFO | app.browser | Navigating to https://www.linkedin.com/jobs/view/4384617179 for application...
+2026-04-29 13:16:27 | ERROR | app.browser | Application failed for https://www.linkedin.com/jobs/view/4384617179: Locator.fill: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("input").first
+    - locator resolved to <input type="search" maxlength="500" name="firstName" autocomplete="on" aria-label="First Name" placeholder="First Name" data-tracking-control-name="public_jobs_people-search-bar_first-name_dismissable-input" class="dismissable-input__input font-sans text-md text-color-text bg-color-transparent flex items-center flex-1 focus:outline-none placeholder:text-color-text-secondary"/>
+    - fill("John")
+  - attempting fill action
+    2 × waiting for element to be visible, enabled and editable
+      - element is not visible
+    - retrying fill action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and editable
+      - element is not visible
+    - retrying fill action
+      - waiting 100ms
+    59 × waiting for element to be visible, enabled and editable
+       - element is not visible
+     - retrying fill action
+       - waiting 500ms
+
+2026-04-29 13:25:32 | INFO | app.browser | Navigating to https://www.linkedin.com/jobs/view/4384617179 for application...
+2026-04-29 13:26:11 | ERROR | app.browser | Application failed for https://www.linkedin.com/jobs/view/4384617179: Locator.fill: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("input").first
+    - locator resolved to <input type="search" maxlength="500" name="firstName" autocomplete="on" aria-label="First Name" placeholder="First Name" data-tracking-control-name="public_jobs_people-search-bar_first-name_dismissable-input" class="dismissable-input__input font-sans text-md text-color-text bg-color-transparent flex items-center flex-1 focus:outline-none placeholder:text-color-text-secondary"/>
+    - fill("Veli")
+  - attempting fill action
+    2 × waiting for element to be visible, enabled and editable
+      - element is not visible
+    - retrying fill action
+    - waiting 20ms
+    2 × waiting for element to be visible, enabled and editable
+      - element is not visible
+    - retrying fill action
+      - waiting 100ms
+    59 × waiting for element to be visible, enabled and editable
+       - element is not visible
+     - retrying fill action
+       - waiting 500ms
+
+2026-04-29 13:34:28 | INFO | app.browser | Resolving LinkedIn apply URL from https://www.linkedin.com/jobs/view/4407498584
+2026-04-29 13:34:29 | INFO | app.browser | Resolved external apply URL: https://www.linkedin.com/signup/cold-join?source=jobs_registration&trk=public_jobs_apply-link-offsite_contextual-sign-in-modal_join-with-email-cta
+2026-04-29 13:34:29 | INFO | app.browser | Redirected to linkedin platform: https://www.linkedin.com/signup/cold-join?source=jobs_registration&trk=public_jobs_apply-link-offsite_contextual-sign-in-modal_join-with-email-cta
+2026-04-29 13:34:32 | INFO | app.browser | Using generic form filler.
+2026-04-29 13:34:44 | INFO | app.browser | [DRY RUN] Generic form filled. Skipping submit.
+2026-04-29 13:35:34 | INFO | app.browser | Using generic form filler.
+2026-04-29 13:35:49 | ERROR | app.browser | Auto-apply failed for https://www.indeed.com/viewjob?jk=b96fdf1213439457: Timeout 15000ms exceeded.
+=========================== logs ===========================
+"commit" event fired
+"domcontentloaded" event fired
+"load" event fired
+============================================================
+2026-04-29 13:35:55 | INFO | app.browser | Using generic form filler.
+2026-04-29 13:36:09 | INFO | app.browser | Resolving LinkedIn apply URL from https://www.linkedin.com/jobs/view/4407501469
+2026-04-29 13:36:10 | ERROR | app.browser | Auto-apply failed for https://www.indeed.com/viewjob?jk=0a08773ca0782277: Timeout 15000ms exceeded.
+=========================== logs ===========================
+"commit" event fired
+"domcontentloaded" event fired
+"load" event fired
+============================================================
+2026-04-29 13:36:11 | INFO | app.browser | Resolved external apply URL: https://www.linkedin.com/signup/cold-join?source=jobs_registration&trk=public_jobs_apply-link-offsite_contextual-sign-in-modal_join-with-email-cta
+2026-04-29 13:36:11 | INFO | app.browser | Redirected to linkedin platform: https://www.linkedin.com/signup/cold-join?source=jobs_registration&trk=public_jobs_apply-link-offsite_contextual-sign-in-modal_join-with-email-cta
+2026-04-29 13:36:13 | INFO | app.browser | Using generic form filler.
+2026-04-29 13:36:26 | INFO | app.browser | [DRY RUN] Generic form filled. Skipping submit.
+2026-04-29 13:38:45 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-29 13:38:45 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-29 13:38:45 | INFO | app.browser |    Title   : Desarrollador Python Junior - Trabajo Remoto
+2026-04-29 13:38:45 | INFO | app.browser |    Company : BairesDev
+2026-04-29 13:38:45 | INFO | app.browser |    Score   : 10/10
+2026-04-29 13:38:45 | INFO | app.browser |    Mode    : DRY RUN (no submit)
+2026-04-29 13:38:45 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-29 13:38:45 | INFO | app.browser | 🌐 Launching browser (visible mode)...
+2026-04-29 13:38:46 | INFO | app.browser | 🔍 Detected platform: LINKEDIN
+2026-04-29 13:38:46 | INFO | app.browser | 🔗 LinkedIn detected — looking for 'Apply on company website' button...
+2026-04-29 13:38:46 | INFO | app.browser | Resolving LinkedIn apply URL from https://www.linkedin.com/jobs/view/4406207397
+2026-04-29 13:38:47 | INFO | app.browser | Resolved external apply URL: https://www.linkedin.com/signup/cold-join?source=jobs_registration&trk=public_jobs_apply-link-offsite_contextual-sign-in-modal_join-link
+2026-04-29 13:38:47 | INFO | app.browser | ✅ Resolved to external ATS: https://www.linkedin.com/signup/cold-join?source=jobs_registration&trk=public_jobs_apply-link-offsite_contextual-sign-in-modal_join-link (LINKEDIN)
+2026-04-29 13:38:47 | INFO | app.browser | 🌍 Navigating to apply page: https://www.linkedin.com/signup/cold-join?source=jobs_registration&trk=public_jobs_apply-link-offsite_contextual-sign-in-modal_join-link
+2026-04-29 13:38:49 | INFO | app.browser | 📸 Screenshot saved: ac56ee88_before.png
+2026-04-29 13:38:49 | INFO | app.browser | 📝 Starting form fill with LINKEDIN adapter...
+2026-04-29 13:38:49 | INFO | app.browser | Using generic form filler.
+2026-04-29 13:39:01 | INFO | app.browser | [DRY RUN] Generic form filled. Skipping submit.
+2026-04-29 13:39:01 | INFO | app.browser | 📸 Screenshot saved: ac56ee88_after.png
+2026-04-29 13:39:01 | INFO | app.browser | ✅ Application complete! Logged to applications_log.txt
+2026-04-29 13:39:01 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-29 13:39:02 | INFO | app.browser | 🔒 Browser closed.
+2026-04-29 13:39:19 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-29 13:39:19 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-29 13:39:19 | INFO | app.browser |    Title   : Desarrollador Python Junior - Trabajo Remoto
+2026-04-29 13:39:19 | INFO | app.browser |    Company : BairesDev
+2026-04-29 13:39:19 | INFO | app.browser |    Score   : 10/10
+2026-04-29 13:39:19 | INFO | app.browser |    Mode    : DRY RUN (no submit)
+2026-04-29 13:39:19 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-29 13:39:20 | INFO | app.browser | 🌐 Launching browser (visible mode)...
+2026-04-29 13:39:20 | INFO | app.browser | 🔍 Detected platform: LINKEDIN
+2026-04-29 13:39:20 | INFO | app.browser | 🔗 LinkedIn detected — looking for 'Apply on company website' button...
+2026-04-29 13:39:20 | INFO | app.browser | Resolving LinkedIn apply URL from https://www.linkedin.com/jobs/view/4406207397
+2026-04-29 13:39:22 | INFO | app.browser | Resolved external apply URL: https://www.linkedin.com/signup/cold-join?source=jobs_registration&trk=public_jobs_apply-link-offsite_contextual-sign-in-modal_join-link
+2026-04-29 13:39:22 | INFO | app.browser | ✅ Resolved to external ATS: https://www.linkedin.com/signup/cold-join?source=jobs_registration&trk=public_jobs_apply-link-offsite_contextual-sign-in-modal_join-link (LINKEDIN)
+2026-04-29 13:39:22 | INFO | app.browser | 🌍 Navigating to apply page: https://www.linkedin.com/signup/cold-join?source=jobs_registration&trk=public_jobs_apply-link-offsite_contextual-sign-in-modal_join-link
+2026-04-29 13:39:23 | ERROR | app.browser | 💥 Unexpected error during auto-apply: Page.goto: Target page, context or browser has been closed
+Call log:
+  - navigating to "https://www.linkedin.com/signup/cold-join?source=jobs_registration&trk=public_jobs_apply-link-offsite_contextual-sign-in-modal_join-link", waiting until "load"
+
+2026-04-29 13:39:23 | INFO | app.browser | 🔒 Browser closed.
+2026-04-29 15:31:22 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-29 15:31:22 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-29 15:31:22 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-29 15:31:22 | INFO | app.browser |    Title   : Software Engineer, New Grad (AI)
+2026-04-29 15:31:22 | INFO | app.browser |    Company : Notion
+2026-04-29 15:31:22 | INFO | app.browser |    Score   : 10/10
+2026-04-29 15:31:22 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-29 15:31:22 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-29 15:31:40 | INFO | app.browser | 🌐 Launching browser...
+2026-04-29 15:31:41 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-04-29 15:31:41 | WARNING | app.sessions | ⚠️  No saved session for linkedin. Some sites may require login.
+2026-04-29 15:31:41 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-04-29 15:31:43 | WARNING | app.browser | ⚠️  No external apply link on LinkedIn (Easy Apply or login required).
+2026-04-29 15:31:43 | INFO | app.browser | 🔒 Browser closed.
+2026-04-29 15:31:57 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-29 15:31:57 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-29 15:31:57 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-29 15:31:57 | INFO | app.browser |    Title   : Software Engineer, New Grad (AI)
+2026-04-29 15:31:57 | INFO | app.browser |    Company : Notion
+2026-04-29 15:31:57 | INFO | app.browser |    Score   : 10/10
+2026-04-29 15:31:57 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-29 15:31:57 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-29 15:31:58 | INFO | app.browser | 🌐 Launching browser...
+2026-04-29 15:31:58 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-04-29 15:31:58 | WARNING | app.sessions | ⚠️  No saved session for linkedin. Some sites may require login.
+2026-04-29 15:31:58 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-04-29 15:32:04 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-04-29 15:32:04 | WARNING | app.browser | ⚠️  No external apply link on LinkedIn (Easy Apply or login required).
+2026-04-29 15:32:04 | INFO | app.browser | 🔒 Browser closed.
+2026-04-29 15:35:34 | INFO | app.sessions | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-29 15:35:34 | INFO | app.sessions | 🔑 SESSION RECORDING: LINKEDIN
+2026-04-29 15:35:34 | INFO | app.sessions |    A browser will open. Please log in manually.
+2026-04-29 15:35:34 | INFO | app.sessions |    Close the browser when done, or wait 120s.
+2026-04-29 15:35:34 | INFO | app.sessions | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-29 15:35:40 | INFO | app.sessions | ⏰ Timeout reached. Saving whatever state we have...
+2026-04-29 15:35:41 | INFO | app.sessions | ✅ Session saved for linkedin → C:\Codes\Projects\TailoredResume\data\sessions\linkedin.json
+2026-04-30 00:18:31 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-30 00:18:31 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:18:31 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-30 00:18:31 | INFO | app.browser |    Title   : Software Engineer Intern, Internal Apps
+2026-04-30 00:18:31 | INFO | app.browser |    Company : Neuralink
+2026-04-30 00:18:31 | INFO | app.browser |    Score   : 10/10
+2026-04-30 00:18:31 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-30 00:18:31 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:18:48 | INFO | app.browser | 🌐 Launching browser...
+2026-04-30 00:18:50 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-04-30 00:18:50 | INFO | app.sessions | 🔑 Loaded session for linkedin (8 cookies)
+2026-04-30 00:18:50 | INFO | app.browser | 🔑 Loaded LinkedIn session (8 cookies)
+2026-04-30 00:18:50 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-04-30 00:18:56 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-04-30 00:18:56 | WARNING | app.browser | ⚠️  No external apply link on LinkedIn (Easy Apply or login required).
+2026-04-30 00:18:57 | INFO | app.browser | 🔒 Browser closed.
+2026-04-30 00:19:06 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-30 00:19:06 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:19:06 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-30 00:19:06 | INFO | app.browser |    Title   : Software Engineer Intern, Internal Apps
+2026-04-30 00:19:06 | INFO | app.browser |    Company : Neuralink
+2026-04-30 00:19:06 | INFO | app.browser |    Score   : 10/10
+2026-04-30 00:19:06 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-30 00:19:06 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:19:07 | INFO | app.browser | 🌐 Launching browser...
+2026-04-30 00:19:07 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-04-30 00:19:07 | INFO | app.sessions | 🔑 Loaded session for linkedin (8 cookies)
+2026-04-30 00:19:07 | INFO | app.browser | 🔑 Loaded LinkedIn session (8 cookies)
+2026-04-30 00:19:07 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-04-30 00:19:13 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-04-30 00:19:13 | WARNING | app.browser | ⚠️  No external apply link on LinkedIn (Easy Apply or login required).
+2026-04-30 00:19:14 | INFO | app.browser | 🔒 Browser closed.
+2026-04-30 00:19:16 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-30 00:19:16 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:19:16 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-30 00:19:16 | INFO | app.browser |    Title   : Software Engineer Intern, Internal Apps
+2026-04-30 00:19:16 | INFO | app.browser |    Company : Neuralink
+2026-04-30 00:19:16 | INFO | app.browser |    Score   : 10/10
+2026-04-30 00:19:16 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-30 00:19:16 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:19:17 | INFO | app.browser | 🌐 Launching browser...
+2026-04-30 00:19:18 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-04-30 00:19:18 | INFO | app.sessions | 🔑 Loaded session for linkedin (8 cookies)
+2026-04-30 00:19:18 | INFO | app.browser | 🔑 Loaded LinkedIn session (8 cookies)
+2026-04-30 00:19:18 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-04-30 00:19:24 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-04-30 00:19:24 | WARNING | app.browser | ⚠️  No external apply link on LinkedIn (Easy Apply or login required).
+2026-04-30 00:19:24 | INFO | app.browser | 🔒 Browser closed.
+2026-04-30 00:22:43 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-30 00:22:43 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:22:43 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-30 00:22:43 | INFO | app.browser |    Title   : Software Engineer Intern, Internal Apps
+2026-04-30 00:22:43 | INFO | app.browser |    Company : Neuralink
+2026-04-30 00:22:43 | INFO | app.browser |    Score   : 10/10
+2026-04-30 00:22:43 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-30 00:22:43 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:22:43 | INFO | app.browser | 🌐 Launching browser...
+2026-04-30 00:22:44 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-04-30 00:22:44 | INFO | app.sessions | 🔑 Loaded session for linkedin (8 cookies)
+2026-04-30 00:22:44 | INFO | app.browser | 🔑 LinkedIn session found (8 cookies) — loading...
+2026-04-30 00:22:44 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-04-30 00:22:50 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-04-30 00:22:50 | INFO | app.browser | 🔵 No external link found — attempting LinkedIn Easy Apply...
+2026-04-30 00:22:50 | INFO | app.browser | 🌍 Navigating to: https://www.linkedin.com/jobs/view/4384617179
+2026-04-30 00:22:50 | INFO | app.browser | 📝 Running LINKEDIN_EASYAPPLY strategy...
+2026-04-30 00:22:50 | INFO | app.strategies.linkedin | 🔵 LinkedIn Easy Apply adapter starting...
+2026-04-30 00:22:51 | INFO | app.strategies.linkedin |    🖱️  Clicking Easy Apply button...
+2026-04-30 00:22:59 | WARNING | app.strategies.linkedin |    ⚠️  Could not open Easy Apply modal: Locator.click: Timeout 8000ms exceeded.
+Call log:
+  - waiting for locator("button.jobs-apply-button:has-text('Easy Apply'), button[aria-label*='Easy Apply'], button:has-text('Easy Apply')").first
+
+2026-04-30 00:23:00 | INFO | app.browser | 📸 Screenshot: C:\Codes\Projects\TailoredResume\data\debug\9b49f89a_result.png
+2026-04-30 00:23:00 | ERROR | app.browser | ❌ Application failed: Could not open Easy Apply modal (may not be an Easy Apply job).
+2026-04-30 00:23:00 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:23:00 | INFO | app.browser | 🔒 Browser closed.
+2026-04-30 00:24:03 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-30 00:24:03 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:24:03 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-30 00:24:03 | INFO | app.browser |    Title   : Software Engineer, New Grad (AI)
+2026-04-30 00:24:03 | INFO | app.browser |    Company : Notion
+2026-04-30 00:24:03 | INFO | app.browser |    Score   : 10/10
+2026-04-30 00:24:03 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-30 00:24:03 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:24:03 | INFO | app.browser | 🌐 Launching browser...
+2026-04-30 00:24:04 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-04-30 00:24:04 | INFO | app.sessions | 🔑 Loaded session for linkedin (8 cookies)
+2026-04-30 00:24:04 | INFO | app.browser | 🔑 LinkedIn session found (8 cookies) — loading...
+2026-04-30 00:24:04 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-04-30 00:24:06 | INFO | app.browser | 🔵 No external link found — attempting LinkedIn Easy Apply...
+2026-04-30 00:24:06 | INFO | app.browser | 🌍 Navigating to: https://www.linkedin.com/jobs/view/4407498584
+2026-04-30 00:24:06 | INFO | app.browser | 📝 Running LINKEDIN_EASYAPPLY strategy...
+2026-04-30 00:24:06 | INFO | app.strategies.linkedin | 🔵 LinkedIn Easy Apply adapter starting...
+2026-04-30 00:24:13 | ERROR | app.strategies.linkedin | ❌ Not logged into LinkedIn. Run: POST /sessions/linkedin/record
+2026-04-30 00:24:14 | INFO | app.browser | 📸 Screenshot: C:\Codes\Projects\TailoredResume\data\debug\5124f7dc_result.png
+2026-04-30 00:24:14 | ERROR | app.browser | ❌ Application failed: LinkedIn session not found. Please record your session first.
+2026-04-30 00:24:14 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:24:14 | INFO | app.browser | 🔒 Browser closed.
+2026-04-30 00:24:45 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-30 00:24:45 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:24:45 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-30 00:24:45 | INFO | app.browser |    Title   : Cloud Engineer Intern - Cloud Platform
+2026-04-30 00:24:45 | INFO | app.browser |    Company : Calix
+2026-04-30 00:24:45 | INFO | app.browser |    Score   : 10/10
+2026-04-30 00:24:45 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-30 00:24:45 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:24:46 | INFO | app.browser | 🌐 Launching browser...
+2026-04-30 00:24:46 | INFO | app.browser | 🔍 Platform detected: GENERIC
+2026-04-30 00:24:46 | WARNING | app.sessions | ⚠️  No saved session for generic. Some sites may require login.
+2026-04-30 00:24:46 | INFO | app.browser | 🌍 Navigating to: https://www.indeed.com/viewjob?jk=b96fdf1213439457
+2026-04-30 00:24:46 | INFO | app.browser | 📝 Running GENERIC strategy...
+2026-04-30 00:24:46 | INFO | app.strategies.generic | 🔧 Generic adapter: navigating to https://www.indeed.com/viewjob?jk=b96fdf1213439457
+2026-04-30 00:24:47 | INFO | app.strategies.generic |    📝 Filling fields (heuristic mode)...
+2026-04-30 00:24:52 | INFO | app.strategies.generic |    🔵 DRY RUN — not clicking submit.
+2026-04-30 00:24:52 | INFO | app.browser | 📸 Screenshot: C:\Codes\Projects\TailoredResume\data\debug\a11887c0_result.png
+2026-04-30 00:24:52 | INFO | app.browser | ✅ Application complete! (status=success)
+2026-04-30 00:24:52 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:24:52 | INFO | app.browser | 🔒 Browser closed.
+2026-04-30 00:26:41 | INFO | app.sessions | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:26:41 | INFO | app.sessions | 🔑 SESSION RECORDING: LINKEDIN
+2026-04-30 00:26:41 | INFO | app.sessions |    ➡️  A browser will open at: https://www.linkedin.com/login
+2026-04-30 00:26:41 | INFO | app.sessions |    ➡️  Log in to linkedin normally in that window.
+2026-04-30 00:26:41 | INFO | app.sessions |    ➡️  Once logged in — CLOSE THE BROWSER WINDOW to save the session.
+2026-04-30 00:26:41 | INFO | app.sessions |    ⏰  Auto-saves after 300 seconds if you don't close it.
+2026-04-30 00:26:41 | INFO | app.sessions | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:26:45 | INFO | app.sessions | 🌐 Browser opened. Waiting for you to log in and close the window...
+2026-04-30 00:27:42 | INFO | app.sessions | ✅ Browser closed by user. Saving session...
+2026-04-30 00:27:43 | INFO | app.sessions | ✅ Session saved for linkedin → C:\Codes\Projects\TailoredResume\data\sessions\linkedin.json
+2026-04-30 00:27:43 | WARNING | app.sessions | ⚠️  Session saved but 0 cookies found — you may not have logged in successfully.
+2026-04-30 00:28:23 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-30 00:28:23 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:28:23 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-30 00:28:23 | INFO | app.browser |    Title   : Software Engineer Intern, Internal Apps
+2026-04-30 00:28:23 | INFO | app.browser |    Company : Neuralink
+2026-04-30 00:28:23 | INFO | app.browser |    Score   : 10/10
+2026-04-30 00:28:23 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-30 00:28:23 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:28:23 | INFO | app.browser | 🌐 Launching browser...
+2026-04-30 00:28:24 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-04-30 00:28:24 | INFO | app.sessions | 🔑 Loaded session for linkedin (0 cookies)
+2026-04-30 00:28:24 | WARNING | app.browser | ⚠️  Session for linkedin exists but is missing auth cookie 'li_at'. You need to re-record — run: curl -X DELETE http://localhost:8000/sessions/linkedin then: curl -X POST http://localhost:8000/sessions/linkedin/record
+2026-04-30 00:28:24 | INFO | app.browser |    No valid LinkedIn session — checking for external apply link...
+2026-04-30 00:28:24 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-04-30 00:28:29 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-04-30 00:28:29 | WARNING | app.browser | ⚠️  No external apply link found, and no valid LinkedIn session.
+   → Run in a new terminal:
+       curl -X POST http://localhost:8000/sessions/linkedin/record
+   → Log in to LinkedIn in the browser that opens, then close it.
+2026-04-30 00:28:30 | INFO | app.browser | 🔒 Browser closed.
+2026-04-30 00:28:34 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-30 00:28:34 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:28:34 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-30 00:28:34 | INFO | app.browser |    Title   : Software Engineer Intern, Internal Apps
+2026-04-30 00:28:34 | INFO | app.browser |    Company : Neuralink
+2026-04-30 00:28:34 | INFO | app.browser |    Score   : 10/10
+2026-04-30 00:28:34 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-30 00:28:34 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:28:35 | INFO | app.browser | 🌐 Launching browser...
+2026-04-30 00:28:36 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-04-30 00:28:36 | INFO | app.sessions | 🔑 Loaded session for linkedin (0 cookies)
+2026-04-30 00:28:36 | WARNING | app.browser | ⚠️  Session for linkedin exists but is missing auth cookie 'li_at'. You need to re-record — run: curl -X DELETE http://localhost:8000/sessions/linkedin then: curl -X POST http://localhost:8000/sessions/linkedin/record
+2026-04-30 00:28:36 | INFO | app.browser |    No valid LinkedIn session — checking for external apply link...
+2026-04-30 00:28:36 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-04-30 00:28:41 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-04-30 00:28:41 | WARNING | app.browser | ⚠️  No external apply link found, and no valid LinkedIn session.
+   → Run in a new terminal:
+       curl -X POST http://localhost:8000/sessions/linkedin/record
+   → Log in to LinkedIn in the browser that opens, then close it.
+2026-04-30 00:28:42 | INFO | app.browser | 🔒 Browser closed.
+2026-04-30 00:31:39 | INFO | app.sessions | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:31:39 | INFO | app.sessions | 🔑 SESSION RECORDING: LINKEDIN
+2026-04-30 00:31:39 | INFO | app.sessions |    ➡️  A browser will open at: https://www.linkedin.com/login
+2026-04-30 00:31:39 | INFO | app.sessions |    ➡️  Log in normally. The session saves AUTOMATICALLY once detected.
+2026-04-30 00:31:39 | INFO | app.sessions |    ⏰  Timeout: 300 seconds
+2026-04-30 00:31:39 | INFO | app.sessions | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:31:45 | INFO | app.sessions | 🌐 Browser opened. Log in to linkedin, then wait — session saves automatically.
+2026-04-30 00:32:19 | INFO | app.sessions | ✅ Auth cookie 'li_at' detected — logged in! Saving session...
+2026-04-30 00:32:20 | INFO | app.sessions | 💾 Captured 12 cookies.
+2026-04-30 00:32:20 | INFO | app.sessions | ✅ Session saved for linkedin → C:\Codes\Projects\TailoredResume\data\sessions\linkedin.json
+2026-04-30 00:32:20 | INFO | app.sessions | 🎉 Session saved! 12 cookies for linkedin.
+2026-04-30 00:32:37 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-30 00:32:37 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:32:37 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-30 00:32:37 | INFO | app.browser |    Title   : Software Engineer Intern, Internal Apps
+2026-04-30 00:32:37 | INFO | app.browser |    Company : Neuralink
+2026-04-30 00:32:37 | INFO | app.browser |    Score   : 10/10
+2026-04-30 00:32:37 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-30 00:32:37 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:32:37 | INFO | app.browser | 🌐 Launching browser...
+2026-04-30 00:32:38 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-04-30 00:32:38 | INFO | app.sessions | 🔑 Loaded session for linkedin (12 cookies)
+2026-04-30 00:32:38 | INFO | app.browser | 🔑 LinkedIn session valid (12 cookies) — loading...
+2026-04-30 00:32:38 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-04-30 00:32:45 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-04-30 00:32:45 | INFO | app.browser | 🔵 No external link — attempting LinkedIn Easy Apply with saved session...
+2026-04-30 00:32:45 | INFO | app.browser | 🌍 Navigating to: https://www.linkedin.com/jobs/view/4384617179
+2026-04-30 00:32:45 | INFO | app.browser | 📝 Running LINKEDIN_EASYAPPLY strategy...
+2026-04-30 00:32:45 | INFO | app.strategies.linkedin | 🔵 LinkedIn Easy Apply adapter starting...
+2026-04-30 00:32:46 | INFO | app.strategies.linkedin |    🖱️  Clicking Easy Apply button...
+2026-04-30 00:32:54 | WARNING | app.strategies.linkedin |    ⚠️  Could not open Easy Apply modal: Locator.click: Timeout 8000ms exceeded.
+Call log:
+  - waiting for locator("button.jobs-apply-button:has-text('Easy Apply'), button[aria-label*='Easy Apply'], button:has-text('Easy Apply')").first
+
+2026-04-30 00:32:55 | INFO | app.browser | 📸 Screenshot: C:\Codes\Projects\TailoredResume\data\debug\9b49f89a_result.png
+2026-04-30 00:32:55 | ERROR | app.browser | ❌ Application failed: Could not open Easy Apply modal (may not be an Easy Apply job).
+2026-04-30 00:32:55 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:32:55 | INFO | app.browser | 🔒 Browser closed.
+2026-04-30 00:35:48 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-30 00:35:48 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:35:48 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-30 00:35:48 | INFO | app.browser |    Title   : Software Engineer, New Grad (AI)
+2026-04-30 00:35:48 | INFO | app.browser |    Company : Notion
+2026-04-30 00:35:48 | INFO | app.browser |    Score   : 10/10
+2026-04-30 00:35:48 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-30 00:35:48 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:35:48 | INFO | app.browser | 🌐 Launching browser...
+2026-04-30 00:35:49 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-04-30 00:35:49 | INFO | app.sessions | 🔑 Loaded session for linkedin (12 cookies)
+2026-04-30 00:35:49 | INFO | app.browser | 🔑 LinkedIn session valid (12 cookies) — loading...
+2026-04-30 00:35:49 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-04-30 00:35:56 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-04-30 00:35:56 | INFO | app.browser | 🔵 No external link — attempting LinkedIn Easy Apply with saved session...
+2026-04-30 00:35:56 | INFO | app.browser | 🌍 Navigating to: https://www.linkedin.com/jobs/view/4407498584
+2026-04-30 00:35:56 | INFO | app.browser | 📝 Running LINKEDIN_EASYAPPLY strategy...
+2026-04-30 00:35:56 | INFO | app.strategies.linkedin | 🔵 LinkedIn Easy Apply adapter starting...
+2026-04-30 00:35:57 | INFO | app.strategies.linkedin |    🖱️  Clicking Easy Apply button...
+2026-04-30 00:36:07 | WARNING | app.strategies.linkedin |    ⚠️  Could not open Easy Apply modal: Locator.click: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator("button.jobs-apply-button, button[aria-label*='Easy Apply'], button[aria-label*='Kolay Başvuru'], button[aria-label*='Einfach bewerben'], button[data-control-name*='apply'], .jobs-apply-button--top-card").first
+
+2026-04-30 00:36:08 | INFO | app.browser | 📸 Screenshot: C:\Codes\Projects\TailoredResume\data\debug\5124f7dc_result.png
+2026-04-30 00:36:08 | ERROR | app.browser | ❌ Application failed: Could not open Easy Apply modal (may not be an Easy Apply job).
+2026-04-30 00:36:08 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:36:08 | INFO | app.browser | 🔒 Browser closed.
+2026-04-30 00:36:14 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-04-30 00:36:14 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:36:14 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-04-30 00:36:14 | INFO | app.browser |    Title   : Software Engineer Intern, Internal Apps
+2026-04-30 00:36:14 | INFO | app.browser |    Company : Neuralink
+2026-04-30 00:36:14 | INFO | app.browser |    Score   : 10/10
+2026-04-30 00:36:14 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-04-30 00:36:14 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:36:15 | INFO | app.browser | 🌐 Launching browser...
+2026-04-30 00:36:15 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-04-30 00:36:15 | INFO | app.sessions | 🔑 Loaded session for linkedin (12 cookies)
+2026-04-30 00:36:15 | INFO | app.browser | 🔑 LinkedIn session valid (12 cookies) — loading...
+2026-04-30 00:36:15 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-04-30 00:36:21 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-04-30 00:36:21 | INFO | app.browser | 🔵 No external link — attempting LinkedIn Easy Apply with saved session...
+2026-04-30 00:36:21 | INFO | app.browser | 🌍 Navigating to: https://www.linkedin.com/jobs/view/4384617179
+2026-04-30 00:36:21 | INFO | app.browser | 📝 Running LINKEDIN_EASYAPPLY strategy...
+2026-04-30 00:36:21 | INFO | app.strategies.linkedin | 🔵 LinkedIn Easy Apply adapter starting...
+2026-04-30 00:36:23 | INFO | app.strategies.linkedin |    🖱️  Clicking Easy Apply button...
+2026-04-30 00:36:33 | WARNING | app.strategies.linkedin |    ⚠️  Could not open Easy Apply modal: Locator.click: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator("button.jobs-apply-button, button[aria-label*='Easy Apply'], button[aria-label*='Kolay Başvuru'], button[aria-label*='Einfach bewerben'], button[data-control-name*='apply'], .jobs-apply-button--top-card").first
+
+2026-04-30 00:36:33 | INFO | app.browser | 📸 Screenshot: C:\Codes\Projects\TailoredResume\data\debug\9b49f89a_result.png
+2026-04-30 00:36:33 | ERROR | app.browser | ❌ Application failed: Could not open Easy Apply modal (may not be an Easy Apply job).
+2026-04-30 00:36:33 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-04-30 00:36:33 | INFO | app.browser | 🔒 Browser closed.
+2026-04-30 00:41:46 | INFO | app.tailor | Tailoring resume for Software Engineer Intern, Internal Apps at Neuralink...
+2026-04-30 00:41:59 | INFO | app.tailor | Generating cover letter for Software Engineer Intern, Internal Apps at Neuralink...
+2026-04-30 00:42:06 | INFO | app.tailor | Application materials saved to C:\Codes\Projects\TailoredResume\data\applications\Neuralink_9b49f8

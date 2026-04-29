@@ -5,42 +5,19 @@ import {
   Briefcase, 
   CheckCircle2, 
   HelpCircle, 
-  ExternalLink, 
   Search, 
   Filter, 
-  BarChart3, 
   LayoutDashboard,
   Target,
-  Clock,
-  DollarSign,
-  MapPin,
   TrendingUp,
   Moon,
   Sun
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-interface Job {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  url: string;
-  date_posted: string;
-  salary: string;
-  description: string;
-  site: string;
-  score: number;
-  verdict: string;
-  reason: string;
-}
-
-interface Stats {
-  total: number;
-  strong: number;
-  maybe: number;
-  avg_score: number;
-}
+import { Job, Stats } from "../types";
+import { JobCard } from "../components/JobCard";
+import { StatCard } from "../components/StatCard";
+import { FilterButton } from "../components/FilterButton";
 
 export default function Dashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -271,144 +248,5 @@ export default function Dashboard() {
         </div>
       </main>
     </div>
-  );
-}
-
-function StatCard({ icon, label, value, subValue, color }: { icon: React.ReactNode, label: string, value: string | number, subValue: string, color: string }) {
-  const bgColors: Record<string, string> = {
-    blue: "bg-blue-500/10",
-    emerald: "bg-emerald-500/10",
-    amber: "bg-amber-500/10",
-    indigo: "bg-indigo-500/10",
-  };
-  
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="glass p-6 rounded-2xl group hover:-translate-y-1 transition-all duration-300 relative overflow-hidden shadow-lg shadow-black/5"
-    >
-      <div className={`absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl -mr-10 -mt-10 opacity-50 transition-opacity group-hover:opacity-100 ${bgColors[color]}`}></div>
-      
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-5 ${bgColors[color]} relative z-10`}>
-        {icon}
-      </div>
-      <p className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-widest mb-2 relative z-10">{label}</p>
-      <h3 className="text-4xl font-extrabold text-[var(--foreground)] mb-2 tracking-tight relative z-10">{value}</h3>
-      <p className="text-sm font-medium text-[var(--muted-foreground)] relative z-10">{subValue}</p>
-    </motion.div>
-  );
-}
-
-function FilterButton({ active, onClick, label, count, color = "indigo" }: { active: boolean, onClick: () => void, label: string, count?: number, color?: string }) {
-  const colorStyles: Record<string, string> = {
-    indigo: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30",
-    emerald: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
-    amber: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
-  };
-
-  return (
-    <button 
-      onClick={onClick}
-      className={`w-full text-left px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-between border ${
-        active 
-          ? `${colorStyles[color]} shadow-md` 
-          : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--secondary)]"
-      }`}
-    >
-      {label}
-      {count !== undefined && (
-        <span className={`text-[10px] px-2.5 py-1 rounded-full font-black ${active ? "bg-[var(--background)]" : "bg-[var(--background)]"}`}>
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
-
-function JobCard({ job, index }: { job: Job, index: number }) {
-  const getScoreStyle = (score: number) => {
-    if (score >= 7) return { text: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
-    if (score >= 4) return { text: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20" };
-    return { text: "text-rose-500", bg: "bg-rose-500/10", border: "border-rose-500/20" };
-  };
-
-  const scoreStyle = getScoreStyle(job.score);
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05, duration: 0.4 }}
-      className="group glass rounded-2xl p-7 border border-[var(--border)] hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 relative overflow-hidden"
-    >
-      {/* Decorative gradient line */}
-      <div className={`absolute left-0 top-0 bottom-0 w-1 ${scoreStyle.bg.replace('/10', '')} opacity-80`}></div>
-
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-6">
-        <div className="space-y-2 flex-1">
-          <div className="flex items-center gap-3 mb-2 flex-wrap">
-            <h3 className="text-2xl font-bold text-[var(--foreground)] group-hover:text-indigo-500 transition-colors">{job.title}</h3>
-            <span className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest border ${scoreStyle.bg} ${scoreStyle.text} ${scoreStyle.border} shadow-sm`}>
-              {job.score}/10 Fit
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--muted-foreground)] font-semibold">
-            <span className="flex items-center gap-1.5 bg-[var(--background)] px-3 py-1.5 rounded-lg border border-[var(--border)] shadow-sm">
-              <Briefcase className="w-4 h-4 text-indigo-400" /> {job.company}
-            </span>
-            <span className="flex items-center gap-1.5 bg-[var(--background)] px-3 py-1.5 rounded-lg border border-[var(--border)] shadow-sm">
-              <MapPin className="w-4 h-4 text-rose-400" /> {job.location || "Remote"}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          <a 
-            href={job.url} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="bg-[var(--secondary)] hover:bg-[var(--border)] text-[var(--foreground)] p-3 rounded-xl transition-all shadow-sm group/btn"
-            title="View Original Posting"
-          >
-            <ExternalLink className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
-          </a>
-          <button className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all hover:-translate-y-0.5">
-            Quick Apply
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-[var(--secondary)]/50 p-4 rounded-xl border border-[var(--border)]">
-          <p className="text-[10px] font-black text-[var(--muted-foreground)] uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-            <DollarSign className="w-3.5 h-3.5 text-emerald-500" /> Salary Range
-          </p>
-          <p className="text-sm font-bold text-[var(--foreground)]">{job.salary || "Competitive Market Rate"}</p>
-        </div>
-        <div className="bg-[var(--secondary)]/50 p-4 rounded-xl border border-[var(--border)]">
-          <p className="text-[10px] font-black text-[var(--muted-foreground)] uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-amber-500" /> Discovered
-          </p>
-          <p className="text-sm font-bold text-[var(--foreground)]">{job.date_posted || "Recently"}</p>
-        </div>
-        <div className="bg-[var(--secondary)]/50 p-4 rounded-xl border border-[var(--border)]">
-          <p className="text-[10px] font-black text-[var(--muted-foreground)] uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-            <BarChart3 className="w-3.5 h-3.5 text-pink-500" /> Source
-          </p>
-          <p className="text-sm font-bold text-[var(--foreground)]">{job.site}</p>
-        </div>
-      </div>
-
-      <div className={`rounded-xl p-5 border ${scoreStyle.border} ${scoreStyle.bg.replace('/10', '/5')}`}>
-        <p className={`text-xs font-black uppercase tracking-[0.2em] mb-2.5 flex items-center gap-2 ${scoreStyle.text}`}>
-          <CheckCircle2 className="w-4 h-4" /> AI Evaluation Insight
-        </p>
-        <p className="text-sm leading-relaxed text-[var(--foreground)]/80 font-medium">
-          "{job.reason}"
-        </p>
-      </div>
-    </motion.div>
   );
 }
