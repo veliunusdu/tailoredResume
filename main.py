@@ -13,12 +13,20 @@ def main():
     # Run command
     run_parser = subparsers.add_parser("run", help="Run the job aggregation and application pipeline")
     
+    # Dashboard command
+    subparsers.add_parser("dashboard", help="Start the job dashboard API server")
+    
     args = parser.parse_args()
     
     if args.command == "init":
         run_init()
     elif args.command == "run":
         run_agent()
+    elif args.command == "dashboard":
+        import uvicorn
+        from app.api import app
+        print("🚀 Starting Dashboard API on http://localhost:8000")
+        uvicorn.run(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":
     main()
