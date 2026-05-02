@@ -18,17 +18,23 @@ def main():
     dashboard_parser = subparsers.add_parser("dashboard", help="Start the Next.js backend API")
     dashboard_parser.add_argument("--port", type=int, default=8000, help="Port for the API")
     
+    # API command (alias for dashboard)
+    api_parser = subparsers.add_parser("api", help="Launch the FastAPI backend server (alias for dashboard)")
+    api_parser.add_argument("--port", type=int, default=8000, help="Port for the API")
+    
     args = parser.parse_args()
     
     if args.command == "init":
         run_init()
     elif args.command == "run":
         run_agent()
-    elif args.command == "dashboard":
+    elif args.command in ["dashboard", "api"]:
         # Import app here to avoid requiring all dependencies for other commands
         from app.api import app
-        print(f"🚀 Starting Dashboard API on http://localhost:{args.port}")
-        uvicorn.run(app, host="0.0.0.0", port=args.port)
+        from app.logger import get_logger
+        _logger = get_logger("app.api")
+        _logger.info(f"🚀 Starting API server on http://localhost:{args.port}")
+        uvicorn.run(app, host="0.0.0.0", port=args.port, log_level="info")
 
 if __name__ == "__main__":
     main()

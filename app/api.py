@@ -1,6 +1,7 @@
 import threading
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware
+from typing import List
 from app.db import (
     get_all_scored_jobs,
     get_job_by_id,
@@ -13,9 +14,14 @@ from app.db import (
 from app.tailor import prepare_application
 from app.browser import apply_to_job
 from app.sessions import record_session, session_exists, delete_session
+from app.schemas import Job, Stats, ApplyResponse, ApplyStatus, SessionResponse
 import uvicorn
 
-app = FastAPI(title="TailoredResume API", version="2.0.0")
+app = FastAPI(
+    title="TailoredResume API",
+    description="Backend API for the autonomous career intelligence command center.",
+    version="2.0.0"
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,15 +34,15 @@ app.add_middleware(
 
 # ── Job Endpoints ─────────────────────────────────────────────────────────────
 
-@app.get("/jobs")
+@app.get("/jobs", response_model=List[Job], tags=["Jobs"])
 def get_jobs():
-    """Fetch all scored jobs from SQLite."""
+    """Fetch all scored jobs from SQLite, sorted by score descending."""
     return get_all_scored_jobs()
 
 
-@app.get("/stats")
+@app.get("/stats", response_model=Stats, tags=["Jobs"])
 def get_stats():
-    """Fetch pipeline statistics."""
+    """Fetch pipeline statistics including totals and average match scores."""
     jobs = get_all_scored_jobs()
     strong = [j for j in jobs if j.get("score", 0) >= 7]
     maybe  = [j for j in jobs if 4 <= j.get("score", 0) < 7]
@@ -50,8 +56,11 @@ def get_stats():
 
 # ── Tailor Endpoint ───────────────────────────────────────────────────────────
 
-@app.post("/jobs/{job_id}/tailor")
-async def tailor_job(job_id: str, background_tasks: BackgroundTasks):
+@app.post("/jobs/{job_id}/tailor", tags=["Tailoring"])
+async def tailor_job(
+    job_id: str = Path(..., description="The unique ID of the job"), 
+    background_tasks: BackgroundTasks = None
+):
     """Trigger AI resume + cover letter tailoring for a job (runs in background)."""
     job = get_job_by_id(job_id)
     if not job:
@@ -67,8 +76,11 @@ def _run_apply_background(job: dict, attempt_id: str, dry_run: bool):
     apply_to_job(job, dry_run=dry_run, attempt_id=attempt_id)
 
 
-@app.post("/jobs/{job_id}/apply")
-async def apply_job(job_id: str, dry_run: bool = True):
+@app.post("/jobs/{job_id}/apply", response_model=ApplyResponse, tags=["Application"])
+async def apply_job(
+    job_id: str = Path(..., description="The unique ID of the job"), 
+    dry_run: bool = Query(True, description="If true, fills the form but does NOT click submit")
+):
     """
     Queue and trigger an autonomous job application.
     dry_run=true (default): fills the form but does NOT click submit.
@@ -89,16 +101,16 @@ async def apply_job(job_id: str, dry_run: bool = True):
     )
     thread.start()
 
-    return {"status": "queued", "attempt_id": attempt_id, "dry_run": dry_run}
+    return {"status": "queued", "job_id": job_id, "attempt_id": attempt_id}
 
 
-@app.get("/jobs/{job_id}/apply-status")
-def get_apply_status(job_id: str):
+@app.get("/jobs/{job_id}/apply-status", response_model=List[ApplyStatus], tags=["Application"])
+def get_apply_status_endpoint(job_id: str = Path(..., description="The unique ID of the job")):
     """Get all apply attempts for a specific job."""
     return get_apply_attempts(job_id)
 
 
-@app.get("/apply-queue")
+@app.get("/apply-queue", response_model=List[ApplyStatus], tags=["Application"])
 def get_apply_queue():
     """Get all apply attempts across all jobs (last 100)."""
     return get_all_apply_attempts()
@@ -106,14 +118,14 @@ def get_apply_queue():
 
 # ── Session Endpoints ─────────────────────────────────────────────────────────
 
-@app.get("/sessions/{platform}/status")
-def get_session_status(platform: str):
+@app.get("/sessions/{platform}/status", tags=["Sessions"])
+def get_session_status(platform: str = Path(..., description="The platform (e.g., linkedin, indeed)")):
     """Check if a saved browser session exists for a platform."""
     return {"platform": platform, "session_saved": session_exists(platform)}
 
 
-@app.post("/sessions/{platform}/record")
-def record_platform_session(platform: str):
+@app.post("/sessions/{platform}/record", response_model=SessionResponse, tags=["Sessions"])
+def record_platform_session(platform: str = Path(..., description="The platform to record a session for")):
     """
     Opens a visible browser window so the user can log in manually.
     Session (cookies) saves automatically when the browser is closed.
@@ -144,12 +156,15 @@ def record_platform_session(platform: str):
     return result_queue.get()
 
 
-@app.delete("/sessions/{platform}")
-def delete_platform_session(platform: str):
+@app.delete("/sessions/{platform}", response_model=SessionResponse, tags=["Sessions"])
+def delete_platform_session(platform: str = Path(..., description="The platform to remove session for")):
     """Delete a saved session (e.g. when it has expired)."""
     deleted = delete_session(platform)
     return {"status": "deleted" if deleted else "not_found", "platform": platform}
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    from app.logger import get_logger
+    _logger = get_logger("app.api")
+    _logger.info("Starting API server on http://0.0.0.0:8000")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
