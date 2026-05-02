@@ -46,6 +46,7 @@ def init_db():
                 dry_run     INTEGER DEFAULT 1,
                 error_msg   TEXT,
                 screenshot  TEXT,
+                ai_patch_suggestion TEXT,
                 applied_at  REAL,
                 created_at  REAL
             )
@@ -222,6 +223,7 @@ def update_apply_status(
     job_board: str = None,
     error_msg: str = None,
     screenshot: str = None,
+    ai_patch_suggestion: str = None,
 ) -> None:
     """Update the status of an apply attempt."""
     now = time.time()
@@ -229,9 +231,9 @@ def update_apply_status(
     with get_connection() as conn:
         conn.execute('''
             UPDATE apply_attempts
-            SET status = ?, job_board = ?, error_msg = ?, screenshot = ?, applied_at = ?
+            SET status = ?, job_board = ?, error_msg = ?, screenshot = ?, ai_patch_suggestion = ?, applied_at = ?
             WHERE id = ?
-        ''', (status, job_board, error_msg, screenshot, applied_at, attempt_id))
+        ''', (status, job_board, error_msg, screenshot, ai_patch_suggestion, applied_at, attempt_id))
         conn.commit()
 
 

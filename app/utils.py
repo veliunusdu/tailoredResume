@@ -5,6 +5,35 @@ import time
 import threading
 from functools import wraps
 from typing import Any, Callable
+from bs4 import BeautifulSoup
+
+
+def minify_dom(raw_html: str) -> str:
+    """
+    Remove unnecessary tags and attributes from HTML to reduce token usage.
+    """
+    if not raw_html:
+        return ""
+    
+    soup = BeautifulSoup(raw_html, 'html.parser')
+
+    # Remove bloat tags completely
+    for tag in soup(['script', 'style', 'svg', 'path', 'meta', 'link', 'noscript', 'iframe', 'header', 'footer', 'nav']):
+        tag.decompose()
+
+    # List of attributes to keep (essential for identifying elements)
+    allowed_attrs = ['id', 'name', 'class', 'placeholder', 'aria-label', 'type', 'value', 'href']
+    
+    for tag in soup.find_all(True):
+        # Remove all attributes except those in the allowed list
+        attrs = dict(tag.attrs)
+        tag.attrs = {k: v for k, v in attrs.items() if k in allowed_attrs}
+        
+        # Normalize class names
+        if 'class' in tag.attrs and isinstance(tag.attrs['class'], list):
+            tag.attrs['class'] = " ".join(tag.attrs['class'])
+
+    return soup.prettify()
 
 
 class RateLimiter:

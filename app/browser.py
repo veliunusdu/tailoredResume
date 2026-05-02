@@ -26,6 +26,8 @@ from app.config import DATA_DIR
 from app.sessions import load_session
 from app.strategies import get_strategy
 from app.strategies.base import ApplyPayload, ApplyResult
+from app.utils import minify_dom
+from app.resilience import send_webhook_alert, generate_selector_patch
 
 _logger = get_logger(__name__)
 
@@ -280,6 +282,34 @@ def apply_to_job(job: dict, dry_run: bool = True, attempt_id: str = None) -> boo
 
         except Exception as e:
             _logger.error("💥 Unexpected error: %s", e)
+            
+            # Resilience: Capture DOM and diagnose UI changes
+            try:
+                # Capture current page content before closing context
+                raw_html = page.content()
+                minified = minify_dom(raw_html)
+                
+                import threading
+                # Offload AI analysis and webhook to a background thread
+                def _background_diagnosis():
+                    suggestion = generate_selector_patch(str(e), minified)
+                    if attempt_id:
+                        from app.db import update_apply_status
+                        # Pass all required args correctly to update_apply_status
+                        update_apply_status(
+                            attempt_id, 
+                            "failed", 
+                            job_board=platform if 'platform' in locals() else None, 
+                            error_msg=str(e), 
+                            ai_patch_suggestion=suggestion
+                        )
+                    send_webhook_alert(job.get("title", "Unknown"), platform if 'platform' in locals() else "generic", str(e), suggestion)
+                
+                threading.Thread(target=_background_diagnosis, daemon=True).start()
+                _logger.info("🤖 AI Resilience diagnosis started in background.")
+            except Exception as re:
+                _logger.warning("⚠️ Failed to capture DOM for resilience: %s", re)
+
             screenshot_path = None
             try:
                 sp = str(debug_dir / f"{job_id_short}_error.png")

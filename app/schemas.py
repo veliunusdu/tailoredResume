@@ -52,6 +52,7 @@ class ApplyResponse(BaseModel):
     attempt_id: Optional[str] = None
     dry_run: Optional[bool] = None
     message: Optional[str] = None
+    ai_patch_suggestion: Optional[str] = None
 
 class ApplyStatus(BaseModel):
     id: str
@@ -61,6 +62,7 @@ class ApplyStatus(BaseModel):
     dry_run: Optional[bool] = None
     error_msg: Optional[str] = None
     screenshot: Optional[str] = None
+    ai_patch_suggestion: Optional[str] = None
     applied_at: Optional[float] = None
     created_at: Optional[float] = None
 
