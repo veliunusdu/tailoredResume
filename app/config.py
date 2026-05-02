@@ -5,9 +5,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── API ───────────────────────────────────────────────────────────────────────
+# ── Gemini API — used for: job scoring, resume tailoring, enrichment ──────────
 GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+
+# ── Claude API — used for: Auto-Apply form filling & screening questions ──────
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+CLAUDE_MODEL      = os.getenv("CLAUDE_MODEL", "claude-3-haiku-20240307")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR         = Path(__file__).resolve().parents[1]

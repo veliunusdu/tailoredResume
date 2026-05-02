@@ -25,6 +25,7 @@ def main():
     elif args.command == "api":
         from app.api import app
         import uvicorn
+        print("🚀 Starting API Backend on http://localhost:8000")
         uvicorn.run(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":
