@@ -16,7 +16,10 @@ import {
   MapPin,
   TrendingUp,
   Moon,
-  Sun
+  Sun,
+  Loader2,
+  AlertCircle,
+  XCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -327,6 +330,69 @@ function FilterButton({ active, onClick, label, count, color = "indigo" }: { act
 }
 
 function JobCard({ job, index }: { job: Job, index: number }) {
+  const [status, setStatus] = useState("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/jobs/${job.id}/apply-status`);
+        const data = await res.json();
+        if (data && data.status !== "idle") {
+          setStatus(data.status);
+          if (data.error_msg) setError(data.error_msg);
+        }
+      } catch (err) {
+        console.error("Status check failed", err);
+      }
+    };
+    checkStatus();
+  }, [job.id]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (status === "queued" || status === "running") {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch(`http://localhost:8000/jobs/${job.id}/apply-status`);
+          const data = await res.json();
+          if (data.status !== status) {
+            setStatus(data.status);
+            if (data.error_msg) setError(data.error_msg);
+          }
+          if (["success", "failed", "manual_required"].includes(data.status)) {
+            clearInterval(interval);
+          }
+        } catch (err) {
+          console.error("Polling failed", err);
+        }
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [status, job.id]);
+
+  const handleApply = async () => {
+    if (status === "queued" || status === "running" || status === "success") return;
+    
+    setStatus("queued");
+    setError(null);
+    try {
+      const res = await fetch(`http://localhost:8000/jobs/${job.id}/apply?dry_run=false`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.status === "queued") {
+        // Status will be updated by polling
+      } else {
+        setStatus("failed");
+        setError(data.message || "Failed to queue application");
+      }
+    } catch (err) {
+      setStatus("failed");
+      setError("Network error");
+    }
+  };
+
   const getScoreStyle = (score: number) => {
     if (score >= 7) return { text: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
     if (score >= 4) return { text: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20" };
@@ -374,8 +440,32 @@ function JobCard({ job, index }: { job: Job, index: number }) {
           >
             <ExternalLink className="w-5 h-5 group-hover/btn:scale-110 transition-transform" />
           </a>
-          <button className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all hover:-translate-y-0.5">
-            Quick Apply
+          <button 
+            onClick={handleApply}
+            disabled={status === "queued" || status === "running" || status === "success"}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-all hover:-translate-y-0.5 ${
+              status === "success" 
+                ? "bg-emerald-500 text-white shadow-emerald-500/25" 
+                : status === "failed" || status === "manual_required"
+                ? "bg-rose-500 text-white shadow-rose-500/25"
+                : status === "queued" || status === "running"
+                ? "bg-indigo-400 text-white cursor-not-allowed"
+                : "bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40"
+            }`}
+          >
+            {status === "queued" || status === "running" ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : status === "success" ? (
+              <CheckCircle2 className="w-4 h-4" />
+            ) : status === "failed" || status === "manual_required" ? (
+              <AlertCircle className="w-4 h-4" />
+            ) : null}
+            
+            {status === "idle" && "Auto Apply"}
+            {status === "queued" && "Queued..."}
+            {status === "running" && "Applying..."}
+            {status === "success" && "Applied"}
+            {(status === "failed" || status === "manual_required") && "Try Again"}
           </button>
         </div>
       </div>
@@ -400,6 +490,13 @@ function JobCard({ job, index }: { job: Job, index: number }) {
           <p className="text-sm font-bold text-[var(--foreground)]">{job.site}</p>
         </div>
       </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-start gap-3">
+          <XCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+          <p className="text-sm text-rose-500 font-semibold leading-relaxed">{error}</p>
+        </div>
+      )}
 
       <div className={`rounded-xl p-5 border ${scoreStyle.border} ${scoreStyle.bg.replace('/10', '/5')}`}>
         <p className={`text-xs font-black uppercase tracking-[0.2em] mb-2.5 flex items-center gap-2 ${scoreStyle.text}`}>

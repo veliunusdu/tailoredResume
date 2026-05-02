@@ -23,19 +23,26 @@ class LeverStrategy(ApplyStrategy):
         except Exception:
             pass
 
-        # Fill fields
+        # Fill fields using heuristics and AI
+        self.fill_fields(page, payload.profile)
+        
+        # Lever specific full name handling if separate fields didn't work
         try:
-            page.fill("input[name='name']", f"{payload.profile.get('first_name')} {payload.profile.get('last_name')}")
-            page.fill("input[name='email']", payload.profile.get("email", ""))
-            page.fill("input[name='phone']", payload.profile.get("phone", ""))
-            page.fill("input[name='org']", payload.profile.get("current_company", ""))
-        except Exception as e:
-            _logger.warning("   ⚠️  Failed to fill some fields: %s", e)
+            name_input = page.locator("input[name='name']").first
+            if name_input.count() > 0 and not name_input.input_value():
+                name_input.fill(f"{payload.profile.get('first_name')} {payload.profile.get('last_name')}")
+        except Exception:
+            pass
+
+        # Use Claude for screening questions
+        _logger.info("   🧠 Solving screening questions with Claude...")
+        self.solve_tricky_field(page, payload.profile)
 
         # Resume
         try:
-            if payload.resume_path:
-                page.set_input_files("input[type='file'][id='resume-upload-input']", payload.resume_path)
+            resume_input = page.locator("input[type='file'][id='resume-upload-input']").first
+            if payload.resume_path and resume_input.count() > 0:
+                resume_input.set_input_files(payload.resume_path)
                 _logger.info("   📄 Resume uploaded.")
         except Exception as e:
             _logger.warning("   ⚠️  Resume upload failed: %s", e)

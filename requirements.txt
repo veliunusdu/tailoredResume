@@ -11,3 +11,5 @@ pyyaml
 beautifulsoup4
 litellm
 playwright
+fastapi
+uvicorn

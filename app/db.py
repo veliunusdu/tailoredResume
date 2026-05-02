@@ -116,6 +116,39 @@ def get_all_scored_jobs() -> list[dict]:
         return [dict(row) for row in cursor.fetchall()]
 
 
+def get_unscored_jobs() -> list[dict]:
+    """Return jobs that haven't been scored yet."""
+    with get_connection() as conn:
+        cursor = conn.execute('SELECT * FROM jobs WHERE score IS NULL')
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def save_score(job_id: str, score: int, verdict: str, reason: str):
+    """Update a job's score and verdict."""
+    with get_connection() as conn:
+        conn.execute('''
+            UPDATE jobs 
+            SET score = ?, verdict = ?, reason = ? 
+            WHERE id = ?
+        ''', (score, verdict, reason, job_id))
+
+
+def save_job_description(job_id: str, description: str):
+    """Update a job's description (e.g. after enrichment)."""
+    with get_connection() as conn:
+        conn.execute('UPDATE jobs SET description = ? WHERE id = ?', (description, job_id))
+
+
+def should_fetch_jobs() -> bool:
+    """Check if we need to fetch new jobs based on TTL."""
+    with get_connection() as conn:
+        cursor = conn.execute('SELECT MAX(fetched_at) as last_fetch FROM jobs')
+        row = cursor.fetchone()
+        if not row or not row['last_fetch']:
+            return True
+        return (time.time() - row['last_fetch']) > JOBS_CACHE_TTL_SEC
+
+
 # ── Application Tracking ──────────────────────────────────────────────────────
 
 def queue_apply(job_id: str, job_url: str) -> str:

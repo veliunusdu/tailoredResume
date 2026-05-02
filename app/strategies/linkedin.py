@@ -55,8 +55,11 @@ class LinkedInEasyApplyStrategy(ApplyStrategy):
             
             # Fill common fields
             self.fill_fields(page, payload.profile)
+            
+            # Use Claude to solve any remaining visible/empty tricky fields (screening questions, dropdowns)
+            self.solve_tricky_field(page, payload.profile)
 
-            # Handle phone field specifically
+            # Handle phone field specifically (LinkedIn often has separate logic for this)
             try:
                 phone_input = page.locator("input[id*='phoneNumber']").first
                 if phone_input.count() > 0 and phone_input.is_visible():

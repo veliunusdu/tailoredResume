@@ -44,7 +44,7 @@ def answer_question(question_text: str, profile: Dict[str, Any]) -> str:
 
     prompt = f"""You are an AI assistant helping a job candidate fill out a job application form.
 
-CANDIDATE PROFILE:
+CANDIDATE PROFILE (JSON):
 {json.dumps(profile, indent=2)}
 
 SCREENING QUESTION:
@@ -53,9 +53,10 @@ SCREENING QUESTION:
 STRICT RULES:
 1. Answer based ONLY on information in the profile above. Do NOT invent or assume facts.
 2. If the information is not in the profile, respond with exactly: CANNOT_ANSWER
-3. Be concise and professional. Max 2-3 sentences for open text, single value for dropdowns/numbers.
-4. For yes/no questions, answer "Yes" or "No" only.
-5. For numeric questions (years of experience, etc.), answer with just the number.
+3. Be concise and professional.
+4. For numeric questions (years of experience, etc.), answer with just the number (e.g., "5").
+5. For yes/no questions, answer exactly "Yes" or "No".
+6. If the question asks for a specific format (e.g., "YYYY-MM-DD"), use that format.
 
 ANSWER:"""
 
@@ -67,8 +68,62 @@ ANSWER:"""
             max_tokens=200,
         )
         answer = response.choices[0].message.content.strip()
+        
+        # Post-process for consistency
+        if "cannot_answer" in answer.lower():
+            return "CANNOT_ANSWER"
+            
         _logger.info("🤖 Claude answered [%.35s...] → '%s'", question_text, answer)
         return answer
     except Exception as e:
         _logger.error("❌ Claude Q&A call failed: %s", e)
         return "CANNOT_ANSWER"
+
+
+def select_best_option(question_text: str, options: list[str], profile: Dict[str, Any]) -> str | None:
+    """
+    Use Claude to select the best option from a dropdown or radio list.
+    Returns the exact string from the options list, or None if no match.
+    """
+    if not is_claude_available() or not options:
+        return None
+
+    prompt = f"""You are an AI assistant helping a job candidate select an option on a job application.
+
+CANDIDATE PROFILE (JSON):
+{json.dumps(profile, indent=2)}
+
+QUESTION:
+{question_text}
+
+AVAILABLE OPTIONS:
+{json.dumps(options, indent=2)}
+
+STRICT RULES:
+1. Choose the option that best matches the candidate's profile.
+2. Respond with ONLY the exact string of the chosen option from the list above.
+3. If no option is a clear match or the profile lacks info, respond with exactly: NO_MATCH
+
+SELECTED OPTION:"""
+
+    try:
+        response = completion(
+            model=_CLAUDE_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=100,
+        )
+        selection = response.choices[0].message.content.strip()
+        
+        if selection == "NO_MATCH" or selection not in options:
+            # Try a fuzzy check in case Claude added extra quotes or text
+            for opt in options:
+                if opt.lower() in selection.lower() or selection.lower() in opt.lower():
+                    return opt
+            return None
+            
+        _logger.info("🤖 Claude selected option [%.35s...] → '%s'", question_text, selection)
+        return selection
+    except Exception as e:
+        _logger.error("❌ Claude selection call failed: %s", e)
+        return None

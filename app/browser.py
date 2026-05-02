@@ -218,4 +218,10 @@ def apply_to_job(original_url: str, dry_run: bool = True, attempt_id: str = None
             browser.close()
             return False
 
+def run_autonomous_applications(jobs: list[dict], dry_run: bool = True):
+    """Bulk application runner for the CLI pipeline."""
+    _logger.info("🚀 Starting bulk application run for %d jobs...", len(jobs))
+    for job in jobs:
+        apply_to_job(job["url"], dry_run=dry_run)
+
 import hashlib
