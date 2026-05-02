@@ -12,3 +12,5 @@ litellm
 playwright
 fastapi
 uvicorn
+celery
+redis

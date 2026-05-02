@@ -4,14 +4,13 @@ agent.py — orchestration only.
 This module contains zero business logic.
 It imports and calls other modules in the right order.
 """
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from celery import group
 from tqdm import tqdm
 
 from app.jobs    import fetch_jobs
 from app.filters import filter_jobs
-from app.llm     import score_jobs_batch
-from app.enrich  import enrich_description
-from app.config  import SCORE_STRONG, SCORE_MAYBE, LLM_BATCH_SIZE, LLM_MAX_CONCURRENT_BATCHES
+from app.tasks   import enrich_job_task, score_jobs_task
+from app.config  import SCORE_STRONG, SCORE_MAYBE, LLM_BATCH_SIZE
 from app.db      import (
     save_jobs, 
     get_unscored_jobs, 
@@ -58,52 +57,34 @@ def get_jobs() -> tuple[list[dict], list[dict]]:
     _logger.info("Found %s unscored jobs in the database.", len(uncached_jobs))
 
     if uncached_jobs:
-        _logger.info("Enriching descriptions for unscored jobs...")
+        _logger.info("Enriching descriptions for unscored jobs via Celery...")
         
-        def enrich_job(job):
-            desc = job.get("description", "")
-            if not desc or len(desc) < 200:
-                url = job.get("url")
-                if url:
-                    new_desc = enrich_description(url)
-                    if new_desc:
-                        job["description"] = new_desc
-                        save_job_description(job["id"], new_desc)
-            return job
-
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            future_to_job = {executor.submit(enrich_job, job): job for job in uncached_jobs}
-            with tqdm(total=len(uncached_jobs), desc="Enriching Jobs", unit="job") as pbar:
-                for future in as_completed(future_to_job):
-                    try:
-                        future.result()
-                    except Exception as exc:
-                        _logger.error("Job enrichment failed: %s", exc)
-                    pbar.update(1)
+        enrich_job_group = group(enrich_job_task.s(job["id"]) for job in uncached_jobs)
+        enrich_result = enrich_job_group.apply_async()
+        
+        with tqdm(total=len(uncached_jobs), desc="Enriching Jobs", unit="job") as pbar:
+            while not enrich_result.ready():
+                import time
+                time.sleep(0.5)
+                # Note: completed_count calculation can be complex with groups, 
+                # but for CLI we'll just wait or poll.
+            pbar.update(len(uncached_jobs))
 
         batches = [
             uncached_jobs[i : i + LLM_BATCH_SIZE]
             for i in range(0, len(uncached_jobs), LLM_BATCH_SIZE)
         ]
         
-        _logger.info("Processing %s batches of up to %s jobs each.", len(batches), LLM_BATCH_SIZE)
+        _logger.info("Processing %s batches via Celery workers...", len(batches))
         
-        def process_batch(batch):
-            results = score_jobs_batch(batch)
-            for job, result in zip(batch, results):
-                job.update(result)
-                save_score(job["id"], result)
-            return batch
+        score_job_group = group(score_jobs_task.s([j["id"] for j in batch]) for batch in batches)
+        score_result = score_job_group.apply_async()
 
-        with ThreadPoolExecutor(max_workers=LLM_MAX_CONCURRENT_BATCHES) as executor:
-            future_to_batch = {executor.submit(process_batch, batch): batch for batch in batches}
-            with tqdm(total=len(batches), desc="Scoring Batches", unit="batch") as pbar:
-                for future in as_completed(future_to_batch):
-                    try:
-                        future.result()
-                    except Exception as exc:
-                        _logger.error("Batch processing failed: %s", exc)
-                    pbar.update(1)
+        with tqdm(total=len(batches), desc="Scoring Batches", unit="batch") as pbar:
+            while not score_result.ready():
+                import time
+                time.sleep(0.5)
+            pbar.update(len(batches))
 
     # 4 - Retrieve and sort by score descending
     all_scored = get_all_scored_jobs()

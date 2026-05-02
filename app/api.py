@@ -13,6 +13,8 @@ from app.db import (
 )
 from app.tailor import prepare_application
 from app.browser import apply_to_job
+from app.tasks import prepare_application_task, apply_to_job_task
+from app.celery_app import app as celery_app
 from app.sessions import record_session, session_exists, delete_session
 from app.schemas import Job, Stats, ApplyResponse, ApplyStatus, SessionResponse
 import uvicorn
@@ -58,23 +60,18 @@ def get_stats():
 
 @app.post("/jobs/{job_id}/tailor", tags=["Tailoring"])
 async def tailor_job(
-    job_id: str = Path(..., description="The unique ID of the job"), 
-    background_tasks: BackgroundTasks = None
+    job_id: str = Path(..., description="The unique ID of the job")
 ):
-    """Trigger AI resume + cover letter tailoring for a job (runs in background)."""
+    """Trigger AI resume + cover letter tailoring for a job (runs via Celery)."""
     job = get_job_by_id(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    background_tasks.add_task(prepare_application, job)
-    return {"status": "tailoring_started"}
+    
+    task = prepare_application_task.delay(job_id)
+    return {"status": "tailoring_queued", "task_id": task.id}
 
 
 # ── Apply Endpoints ───────────────────────────────────────────────────────────
-
-def _run_apply_background(job: dict, attempt_id: str, dry_run: bool):
-    """Wrapper to run apply_to_job in a real thread (Playwright needs it)."""
-    apply_to_job(job, dry_run=dry_run, attempt_id=attempt_id)
-
 
 @app.post("/jobs/{job_id}/apply", response_model=ApplyResponse, tags=["Application"])
 async def apply_job(
@@ -82,7 +79,7 @@ async def apply_job(
     dry_run: bool = Query(True, description="If true, fills the form but does NOT click submit")
 ):
     """
-    Queue and trigger an autonomous job application.
+    Queue and trigger an autonomous job application via Celery.
     dry_run=true (default): fills the form but does NOT click submit.
     dry_run=false: will actually submit — use with caution!
     """
@@ -90,18 +87,24 @@ async def apply_job(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Create a queued attempt record
+    # Create a queued attempt record in SQLite
     attempt_id = queue_apply(job_id, dry_run=dry_run)
 
-    # Run in a real OS thread — Playwright requires a non-async context
-    thread = threading.Thread(
-        target=_run_apply_background,
-        args=(job, attempt_id, dry_run),
-        daemon=True,
-    )
-    thread.start()
+    # Offload to Celery worker
+    task = apply_to_job_task.delay(job_id, attempt_id, dry_run)
 
-    return {"status": "queued", "job_id": job_id, "attempt_id": attempt_id}
+    return {"status": "queued", "job_id": job_id, "attempt_id": attempt_id, "task_id": task.id}
+
+
+@app.get("/tasks/{task_id}", tags=["Tasks"])
+def get_task_status(task_id: str):
+    """Check the status of a Celery task."""
+    res = celery_app.AsyncResult(task_id)
+    return {
+        "task_id": task_id,
+        "status": res.status,
+        "result": res.result if res.ready() else None
+    }
 
 
 @app.get("/jobs/{job_id}/apply-status", response_model=List[ApplyStatus], tags=["Application"])
