@@ -103,4 +103,9 @@ def remove_session(platform: str = Path(..., description="The platform to remove
     raise HTTPException(status_code=404, detail=f"Session for {platform} not found")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    from app.logger import get_logger
+    _logger = get_logger("app.api")
+    _logger.info("Starting API server on http://0.0.0.0:8000")
+    
+    # Configure uvicorn log level to match our app level
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
