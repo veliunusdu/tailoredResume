@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+build
+dist
+.env*
+.git
+.dockerignore
+Dockerfile*
+docker-compose*
+README.md
+LICENSE

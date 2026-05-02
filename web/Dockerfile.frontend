@@ -1,0 +1,24 @@
+# Use Node 20/22
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm config set fetch-retry-maxtimeout 600000 && \
+    npm config set fetch-retries 5 && \
+    npm install
+
+# Copy the rest of the application
+COPY . .
+
+# Build the Next.js application
+RUN npm run build
+
+# Expose the frontend port
+EXPOSE 3000
+
+# Start Next.js
+CMD ["npm", "run", "start"]
