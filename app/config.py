@@ -7,7 +7,7 @@ load_dotenv()
 
 # ── Gemini API — used for: job scoring, resume tailoring, enrichment ──────────
 GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
 # ── Claude API — used for: Auto-Apply form filling & screening questions ──────
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")

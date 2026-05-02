@@ -24,7 +24,11 @@ from app.utils import retry, RateLimiter
 _logger = get_logger(__name__)
 
 # Ensure API key is in environment for litellm
+if not GEMINI_API_KEY:
+    _logger.error("GEMINI_API_KEY is not set! Check your .env file.")
+
 os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
+os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY # Fallback for some litellm versions
 
 _rate_limiter = RateLimiter(LLM_MIN_INTERVAL_SEC)
 
@@ -93,7 +97,8 @@ def _call_llm_raw(user_prompt: str, is_batch: bool = False) -> Any:
         messages=[
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": user_prompt}
-        ]
+        ],
+        api_key=GEMINI_API_KEY
     )
     raw = (response.choices[0].message.content or "").strip()
     
