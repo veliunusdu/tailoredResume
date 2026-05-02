@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -5,9 +6,32 @@ __pycache__/
 venv/
 ENV/
 env/
-.env
-data/*.db
-data/agent.log
 .pytest_cache/
 tests/__pycache__/
+
+# Node / Next.js (Important to ignore in root context for backend build)
+web/node_modules/
+web/.next/
+web/out/
+web/build/
+
+# Local Data & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+data/*.db
+data/*.sqlite3
+data/agent.log
+data/screenshots/
+*.db
+
+# Git
 .git/
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
