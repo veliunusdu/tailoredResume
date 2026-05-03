@@ -19,3 +19,14 @@ export interface Stats {
   maybe: number;
   avg_score: number;
 }
+
+export interface KeywordAnalysis {
+  found: string[];
+  missing: string[];
+}
+
+export interface InterviewQuestion {
+  question: string;
+  type: "Technical" | "Behavioral" | "Experience";
+  focus: string;
+}
