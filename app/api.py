@@ -11,7 +11,7 @@ from app.db import (
     get_all_apply_attempts,
     get_apply_attempt,
 )
-from app.tailor import prepare_application, get_base_resume
+from app.tailor import prepare_application, get_best_base_resume
 from app.browser import apply_to_job
 from app.tasks import prepare_application_task, apply_to_job_task
 from app.llm import analyze_job_keywords, generate_interview_questions
@@ -81,14 +81,14 @@ async def get_job_keywords(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     
-    base_resume = get_base_resume()
-    if not base_resume:
-        raise HTTPException(status_code=400, detail="Base resume not found. Please upload one first.")
-    
     desc = job.get("description", "")
     if not desc:
         raise HTTPException(status_code=400, detail="Job has no description to analyze.")
         
+    resume_name, base_resume = get_best_base_resume(desc)
+    if not base_resume:
+        raise HTTPException(status_code=400, detail="Base resume not found. Please upload one first in the data/ folder.")
+    
     analysis = analyze_job_keywords(desc, base_resume)
     return analysis
 
@@ -102,14 +102,14 @@ async def get_job_interview_questions(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     
-    base_resume = get_base_resume()
-    if not base_resume:
-        raise HTTPException(status_code=400, detail="Base resume not found. Please upload one first.")
-    
     desc = job.get("description", "")
     if not desc:
         raise HTTPException(status_code=400, detail="Job has no description to analyze.")
         
+    resume_name, base_resume = get_best_base_resume(desc)
+    if not base_resume:
+        raise HTTPException(status_code=400, detail="Base resume not found. Please upload one first in the data/ folder.")
+    
     questions = generate_interview_questions(desc, base_resume)
     return questions
 
@@ -122,7 +122,7 @@ async def apply_job(
     dry_run: bool = Query(True, description="If true, fills the form but does NOT click submit")
 ):
     """
-    Queue and trigger an autonomous job application via Celery.
+    Queue and trigger an automated job application via Celery.
     dry_run=true (default): fills the form but does NOT click submit.
     dry_run=false: will actually submit — use with caution!
     """

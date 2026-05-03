@@ -7935,3 +7935,152 @@ Call log:
 }
 
 2026-05-03 11:02:58 | INFO | app.api | 🚀 Starting API server on http://localhost:8000
+2026-05-03 11:35:22 | INFO | app.api | 🚀 Starting API server on http://localhost:8000
+2026-05-03 08:52:11 | INFO | app.api | 🚀 Starting API server on http://localhost:8000
+2026-05-03 11:53:11 | INFO | app.api | 🚀 Starting API server on http://localhost:8000
+2026-05-03 11:55:27 | INFO | app.tasks | Applying to job ae4099a7e25f533ae131cd4cd132a305ca338d0df2949dfc35fe4b3ce3741f71 (Attempt: bf8d96a0-ca11-453d-b222-352fe4413580, Dry Run: True)
+2026-05-03 11:55:27 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-05-03 11:55:27 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-05-03 11:55:27 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-05-03 11:55:27 | INFO | app.browser |    Title   : Internship, Software Engineer, Maps & Self-Driving Navigation (Fall 2026)
+2026-05-03 11:55:27 | INFO | app.browser |    Company : Tesla
+2026-05-03 11:55:27 | INFO | app.browser |    Score   : 10/10
+2026-05-03 11:55:27 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-05-03 11:55:27 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-05-03 11:55:36 | INFO | app.browser | 🌐 Launching browser...
+2026-05-03 11:55:38 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-05-03 11:55:38 | INFO | app.sessions | 🔑 Loaded session for linkedin (12 cookies)
+2026-05-03 11:55:38 | INFO | app.browser | 🔑 LinkedIn session valid (12 cookies) — loading...
+2026-05-03 11:55:38 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-05-03 11:55:44 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-05-03 11:55:44 | INFO | app.browser | 🔵 No external link — attempting LinkedIn Easy Apply with saved session...
+2026-05-03 11:55:44 | ERROR | app.browser | 💥 Unexpected error: no such column: ai_patch_suggestion
+2026-05-03 11:55:45 | INFO | app.resilience | 🤖 Requesting AI patch suggestion...
+2026-05-03 11:55:45 | INFO | app.browser | 🤖 AI Resilience diagnosis started in background.
+2026-05-03 11:55:45 | INFO | app.browser | 🔒 Browser closed.
+2026-05-03 11:55:45 | INFO | app.tasks | Applying to job 9b49f89ae2ad276ae3eac22c261233a9d31c5f37cb2b4ccb09c4bfa33423c975 (Attempt: 2f532f72-95d5-4eae-9a76-bb07a32ba81d, Dry Run: True)
+2026-05-03 11:55:45 | INFO | app.browser |    📄 Using tailored resume: tailored_resume.md
+2026-05-03 11:55:45 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-05-03 11:55:45 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-05-03 11:55:45 | INFO | app.browser |    Title   : Software Engineer Intern, Internal Apps
+2026-05-03 11:55:45 | INFO | app.browser |    Company : Neuralink
+2026-05-03 11:55:45 | INFO | app.browser |    Score   : 10/10
+2026-05-03 11:55:45 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-05-03 11:55:45 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-05-03 11:55:46 | INFO | app.browser | 🌐 Launching browser...
+2026-05-03 11:55:46 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-05-03 11:55:46 | INFO | app.sessions | 🔑 Loaded session for linkedin (12 cookies)
+2026-05-03 11:55:46 | INFO | app.browser | 🔑 LinkedIn session valid (12 cookies) — loading...
+2026-05-03 11:55:46 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-05-03 11:55:53 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-05-03 11:55:53 | INFO | app.browser | 🔵 No external link — attempting LinkedIn Easy Apply with saved session...
+2026-05-03 11:55:53 | ERROR | app.browser | 💥 Unexpected error: no such column: ai_patch_suggestion
+2026-05-03 11:55:53 | INFO | app.resilience | 🤖 Requesting AI patch suggestion...
+2026-05-03 11:55:53 | INFO | app.browser | 🤖 AI Resilience diagnosis started in background.
+2026-05-03 11:55:53 | ERROR | app.resilience | ❌ AI patch generation failed: litellm.BadRequestError: GeminiException BadRequestError - {
+  "error": {
+    "code": 403,
+    "message": "Your API key was reported as leaked. Please use another API key.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+2026-05-03 11:55:53 | INFO | app.browser | 🔒 Browser closed.
+2026-05-03 11:56:01 | INFO | app.resilience | ✅ AI Suggestion received: p:has-text("No longer accepting applications")
+2026-05-03 11:56:12 | INFO | app.tasks | Applying to job a7a57be632ac50d6bdcb7caed58155ad2da203c26a6038007a64aba6cb7e446b (Attempt: 789eb42c-4011-4574-898b-df250e89a330, Dry Run: True)
+2026-05-03 11:56:12 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-05-03 11:56:12 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-05-03 11:56:12 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-05-03 11:56:12 | INFO | app.browser |    Title   : AI Deployment Engineer- ChatGPT Ecosystem
+2026-05-03 11:56:12 | INFO | app.browser |    Company : OpenAI
+2026-05-03 11:56:12 | INFO | app.browser |    Score   : 2/10
+2026-05-03 11:56:12 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-05-03 11:56:12 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-05-03 11:56:13 | INFO | app.browser | 🌐 Launching browser...
+2026-05-03 11:56:13 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-05-03 11:56:13 | INFO | app.sessions | 🔑 Loaded session for linkedin (12 cookies)
+2026-05-03 11:56:13 | INFO | app.browser | 🔑 LinkedIn session valid (12 cookies) — loading...
+2026-05-03 11:56:13 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-05-03 11:56:20 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-05-03 11:56:20 | INFO | app.browser | 🔵 No external link — attempting LinkedIn Easy Apply with saved session...
+2026-05-03 11:56:20 | ERROR | app.browser | 💥 Unexpected error: no such column: ai_patch_suggestion
+2026-05-03 11:56:20 | INFO | app.resilience | 🤖 Requesting AI patch suggestion...
+2026-05-03 11:56:20 | INFO | app.browser | 🤖 AI Resilience diagnosis started in background.
+2026-05-03 11:56:20 | INFO | app.browser | 🔒 Browser closed.
+2026-05-03 11:56:20 | ERROR | app.resilience | ❌ AI patch generation failed: litellm.BadRequestError: GeminiException BadRequestError - {
+  "error": {
+    "code": 403,
+    "message": "Your API key was reported as leaked. Please use another API key.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+2026-05-03 11:57:30 | INFO | app.tasks | Applying to job 25e715cf5f0c5b5005be4fddeed8d08627c67b57d0b533b47f835b15dc8c67c5 (Attempt: 3b869f45-4b6c-458c-834d-e86d8cbcfffb, Dry Run: True)
+2026-05-03 11:57:30 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-05-03 11:57:30 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-05-03 11:57:30 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-05-03 11:57:30 | INFO | app.browser |    Title   : Robotics QA Intern
+2026-05-03 11:57:30 | INFO | app.browser |    Company : Ambi Robotics
+2026-05-03 11:57:30 | INFO | app.browser |    Score   : 8/10
+2026-05-03 11:57:30 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-05-03 11:57:30 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-05-03 11:57:31 | INFO | app.browser | 🌐 Launching browser...
+2026-05-03 11:57:32 | INFO | app.browser | 🔍 Platform detected: LINKEDIN
+2026-05-03 11:57:32 | INFO | app.sessions | 🔑 Loaded session for linkedin (12 cookies)
+2026-05-03 11:57:32 | INFO | app.browser | 🔑 LinkedIn session valid (12 cookies) — loading...
+2026-05-03 11:57:32 | INFO | app.browser |    🔗 Looking for external apply link on LinkedIn...
+2026-05-03 11:57:38 | WARNING | app.browser |    ⚠️  LinkedIn resolve failed: Locator.get_attribute: Timeout 5000ms exceeded.
+Call log:
+  - waiting for locator("a[data-tracking-control-name*='apply'], a:has-text('Apply on company website'), a:has-text('Apply on')").first
+
+2026-05-03 11:57:38 | INFO | app.browser | 🔵 No external link — attempting LinkedIn Easy Apply with saved session...
+2026-05-03 11:57:38 | ERROR | app.browser | 💥 Unexpected error: no such column: ai_patch_suggestion
+2026-05-03 11:57:38 | INFO | app.resilience | 🤖 Requesting AI patch suggestion...
+2026-05-03 11:57:38 | INFO | app.browser | 🤖 AI Resilience diagnosis started in background.
+2026-05-03 11:57:39 | ERROR | app.resilience | ❌ AI patch generation failed: litellm.BadRequestError: GeminiException BadRequestError - {
+  "error": {
+    "code": 403,
+    "message": "Your API key was reported as leaked. Please use another API key.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+2026-05-03 11:57:39 | INFO | app.browser | 🔒 Browser closed.
+2026-05-03 12:02:18 | INFO | app.api | 🚀 Starting API server on http://localhost:8000
+2026-05-03 12:02:24 | INFO | app.tasks | Applying to job 05877d7121619582f8f4dd677557c1a71e84c3cf1a38daae3d55ca5ea25e3e4f (Attempt: b75f4d09-94b0-4aea-a30c-934de75792ac, Dry Run: True)
+2026-05-03 12:02:24 | INFO | app.browser |    📄 Using base resume (no tailored version found).
+2026-05-03 12:02:24 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-05-03 12:02:24 | INFO | app.browser | 🤖 AUTO-APPLY STARTED
+2026-05-03 12:02:24 | INFO | app.browser |    Title   : Software engineering intern | Skillsync
+2026-05-03 12:02:24 | INFO | app.browser |    Company : nan
+2026-05-03 12:02:24 | INFO | app.browser |    Score   : 10/10
+2026-05-03 12:02:24 | INFO | app.browser |    Mode    : 🔵 DRY RUN (no submit)
+2026-05-03 12:02:24 | INFO | app.browser | ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2026-05-03 12:02:24 | INFO | app.browser | 🌐 Launching browser...
+2026-05-03 12:02:25 | INFO | app.browser | 🔍 Platform detected: GENERIC
+2026-05-03 12:02:25 | WARNING | app.sessions | ⚠️  No saved session for generic. Some sites may require login.
+2026-05-03 12:02:25 | ERROR | app.browser | 💥 Unexpected error: no such column: ai_patch_suggestion
+2026-05-03 12:02:25 | INFO | app.resilience | 🤖 Requesting AI patch suggestion...
+2026-05-03 12:02:25 | INFO | app.browser | 🤖 AI Resilience diagnosis started in background.
+2026-05-03 12:02:26 | INFO | app.browser | 🔒 Browser closed.
+2026-05-03 12:02:26 | ERROR | app.resilience | ❌ AI patch generation failed: litellm.BadRequestError: GeminiException BadRequestError - {
+  "error": {
+    "code": 403,
+    "message": "Your API key was reported as leaked. Please use another API key.",
+    "status": "PERMISSION_DENIED"
+  }
+}
+
+2026-05-03 12:07:04 | INFO | app.api | 🚀 Starting API server on http://localhost:8000
+2026-05-03 12:07:34 | INFO | app.api | 🚀 Starting API server on http://localhost:8000
+2026-05-03 12:08:26 | INFO | app.api | 🚀 Starting API server on http://localhost:8000
+2026-05-03 12:13:26 | INFO | app.api | 🚀 Starting API server on http://localhost:8000

@@ -2,12 +2,14 @@
 llm.py — all LLM calls live here.
 
 This module knows nothing about jobs specifically.
-It takes a prompt string and returns a parsed dict.
+It takes a prompt string and returns structured Pydantic objects.
 """
 import os
 import json
-from typing import Any
+from typing import Any, Type, List
 import litellm
+import instructor
+from pydantic import BaseModel, Field
 from app.config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
@@ -32,6 +34,34 @@ os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY # Fallback for some litellm versio
 
 _rate_limiter = RateLimiter(LLM_MIN_INTERVAL_SEC)
 
+# ── Pydantic Models for Instructor ────────────────────────────────────────────
+
+class SingleJobEvaluation(BaseModel):
+    verdict: str = Field(description="'yes', 'maybe', or 'no'")
+    score: int = Field(description="Integer 0-10. 8-10 = strong match, 4-7 = possible, 0-3 = not suitable")
+    reason: str = Field(description="One sentence explanation")
+
+class BatchJobEvaluationItem(BaseModel):
+    id: str = Field(description="The job ID from the prompt")
+    verdict: str = Field(description="'yes', 'maybe', or 'no'")
+    score: int = Field(description="Integer 0-10")
+    reason: str = Field(description="One sentence explanation")
+
+class BatchJobEvaluations(BaseModel):
+    evaluations: List[BatchJobEvaluationItem]
+
+class KeywordAnalysis(BaseModel):
+    found: List[str]
+    missing: List[str]
+
+class InterviewQuestion(BaseModel):
+    question: str
+    type: str = Field(description="'Technical', 'Behavioral', or 'Experience'")
+    focus: str = Field(description="Brief explanation of what this question tests")
+
+class InterviewQuestionsList(BaseModel):
+    questions: List[InterviewQuestion]
+
 _SYSTEM_PROMPT_SINGLE = """
 You are a job fit evaluator for a university student with the following profile:
 
@@ -41,15 +71,6 @@ You are a job fit evaluator for a university student with the following profile:
 - Location: open to fully remote worldwide
 - Dealbreakers: requires 3+ years experience, requires degree already completed,
   senior/lead/principal roles, test/sample/fake postings
-
-Evaluate the job and return ONLY valid JSON in this exact schema:
-{
-  "verdict": "yes" | "maybe" | "no",
-  "score": <integer 0-10>,
-  "reason": "<one sentence>"
-}
-
-Commit to a verdict first. Score 8-10 = strong match, 4-7 = possible, 0-3 = not suitable.
 """.strip()
 
 _SYSTEM_PROMPT_BATCH = """
@@ -61,19 +82,6 @@ You are a job fit evaluator for a university student with the following profile:
 - Location: open to fully remote worldwide
 - Dealbreakers: requires 3+ years experience, requires degree already completed,
   senior/lead/principal roles, test/sample/fake postings
-
-Evaluate the list of jobs provided. For each job, return its evaluation.
-Return ONLY valid JSON in this exact schema, a JSON array of objects:
-[
-  {
-    "id": "<job_id_from_prompt>",
-    "verdict": "yes" | "maybe" | "no",
-    "score": <integer 0-10>,
-    "reason": "<one sentence>"
-  }
-]
-
-Commit to a verdict first. Score 8-10 = strong match, 4-7 = possible, 0-3 = not suitable.
 """.strip()
 
 _SYSTEM_PROMPT_KEYWORDS = """
@@ -83,12 +91,6 @@ Your task is to compare a JOB DESCRIPTION against a BASE RESUME and identify key
 1. Extract the top 10-15 most important keywords from the JOB DESCRIPTION.
 2. Determine if each keyword is present in the BASE RESUME.
 3. Be strict but fair. If a skill is implied (e.g., "Python" in JD, "Django" in Resume), it might still be considered missing unless the keyword "Python" actually appears.
-
-Return ONLY valid JSON in this exact schema:
-{
-  "found": ["Keyword1", "Keyword2", ...],
-  "missing": ["Keyword3", "Keyword4", ...]
-}
 """.strip()
 
 _SYSTEM_PROMPT_INTERVIEW = """
@@ -103,15 +105,6 @@ CRITICAL INSTRUCTIONS:
    - Experience-based: Questions about specific projects in the Resume relevant to the JD.
    - Behavioral: Tailored to the company's likely culture based on the JD.
 2. For each question, provide a "focus" explanation (why you're asking it).
-
-Return ONLY valid JSON in this exact schema, a JSON array of objects:
-[
-  {
-    "question": "The actual question",
-    "type": "Technical" | "Behavioral" | "Experience",
-    "focus": "Brief explanation of what this question tests"
-  }
-]
 """.strip()
 
 @retry(
@@ -121,40 +114,27 @@ Return ONLY valid JSON in this exact schema, a JSON array of objects:
     rate_limit_cooldown_sec=LLM_RATE_LIMIT_COOLDOWN_SEC,
     logger=_logger,
 )
-def _call_llm_raw(user_prompt: str, is_batch: bool = False, system_prompt: str = None) -> Any:
+def _call_llm_structured(user_prompt: str, response_model: Type[BaseModel], system_prompt: str = None) -> BaseModel:
     _rate_limiter.wait()
-    sys_prompt = system_prompt or (_SYSTEM_PROMPT_BATCH if is_batch else _SYSTEM_PROMPT_SINGLE)
+    sys_prompt = system_prompt or _SYSTEM_PROMPT_SINGLE
     
     # Prefix with gemini/ for litellm routing if it's a gemini model
     model_name = GEMINI_MODEL
     if "gemini" in model_name and not model_name.startswith("gemini/"):
         model_name = f"gemini/{model_name}"
         
-    response = litellm.completion(
+    client = instructor.from_litellm(litellm.completion)
+        
+    response = client.chat.completions.create(
         model=model_name,
+        response_model=response_model,
         messages=[
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": user_prompt}
         ],
         api_key=GEMINI_API_KEY
     )
-    raw = (response.choices[0].message.content or "").strip()
-    
-    if not raw:
-        raise ValueError("Empty response from LLM")
-
-    # Strip markdown code fences if present
-    if raw.startswith("```"):
-        raw = raw.strip("`").strip()
-        if raw.startswith("json"):
-            raw = raw[4:].strip()
-
-    parsed = json.loads(raw)
-    if is_batch and not isinstance(parsed, list):
-        raise ValueError("Unexpected LLM response format: expected list")
-    elif not is_batch and not isinstance(parsed, dict):
-        raise ValueError("Unexpected LLM response format: expected dict")
-    return parsed
+    return response
 
 def _normalize_result(result: dict) -> dict:
     score = result.get("score", 0)
@@ -179,8 +159,8 @@ def score_job(job: dict) -> dict:
         f"Description (excerpt): {job['description'][:LLM_MAX_DESC_CHARS]}"
     )
     try:
-        result = _call_llm_raw(user_prompt, is_batch=False)
-        return _normalize_result(result)
+        result = _call_llm_structured(user_prompt, SingleJobEvaluation, system_prompt=_SYSTEM_PROMPT_SINGLE)
+        return _normalize_result(result.model_dump())
     except Exception as exc:
         _logger.error("LLM call failed after retries: %s", exc)
         return _normalize_result({"verdict": "no", "score": 0, "reason": "model unavailable"})
@@ -204,9 +184,9 @@ def score_jobs_batch(jobs: list[dict]) -> list[dict]:
     user_prompt = "\n".join(user_prompt_lines)
 
     try:
-        results = _call_llm_raw(user_prompt, is_batch=True)
+        results = _call_llm_structured(user_prompt, BatchJobEvaluations, system_prompt=_SYSTEM_PROMPT_BATCH)
         # Match back by id
-        result_map = {str(res.get("id")): res for res in results if isinstance(res, dict)}
+        result_map = {str(res.id): res.model_dump() for res in results.evaluations}
         
         final_results = []
         for i in range(len(jobs)):
@@ -228,7 +208,8 @@ def analyze_job_keywords(job_description: str, base_resume: str) -> dict:
         f"=== BASE RESUME ===\n{base_resume[:LLM_MAX_DESC_CHARS * 2]}"
     )
     try:
-        return _call_llm_raw(user_prompt, system_prompt=_SYSTEM_PROMPT_KEYWORDS)
+        result = _call_llm_structured(user_prompt, KeywordAnalysis, system_prompt=_SYSTEM_PROMPT_KEYWORDS)
+        return result.model_dump()
     except Exception as exc:
         _logger.error("Keyword analysis LLM call failed: %s", exc)
         return {"found": [], "missing": []}
@@ -240,7 +221,8 @@ def generate_interview_questions(job_description: str, base_resume: str) -> list
         f"=== BASE RESUME ===\n{base_resume[:LLM_MAX_DESC_CHARS * 2]}"
     )
     try:
-        return _call_llm_raw(user_prompt, system_prompt=_SYSTEM_PROMPT_INTERVIEW, is_batch=True)
+        result = _call_llm_structured(user_prompt, InterviewQuestionsList, system_prompt=_SYSTEM_PROMPT_INTERVIEW)
+        return [q.model_dump() for q in result.questions]
     except Exception as exc:
         _logger.error("Interview questions LLM call failed: %s", exc)
         return []

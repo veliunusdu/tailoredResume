@@ -1,18 +1,17 @@
 import argparse
 import sys
 import uvicorn
-from app.agent import run as run_agent
 from app.init import run_init
 
 def main():
-    parser = argparse.ArgumentParser(description="Tailored Resume - 6-Stage Autonomous Pipeline")
+    parser = argparse.ArgumentParser(description="Tailored Resume Career Toolkit")
     subparsers = parser.add_subparsers(dest="command", required=True)
     
     # Init command
     init_parser = subparsers.add_parser("init", help="Run the interactive setup wizard")
-    
-    # Run command
-    run_parser = subparsers.add_parser("run", help="Run the job aggregation and application pipeline")
+
+    # Reset DB command
+    reset_parser = subparsers.add_parser("reset-db", help="Delete the local SQLite database to force a schema recreation")
 
     # Dashboard command
     dashboard_parser = subparsers.add_parser("dashboard", help="Start the Next.js backend API")
@@ -26,8 +25,23 @@ def main():
     
     if args.command == "init":
         run_init()
-    elif args.command == "run":
-        run_agent()
+    elif args.command == "reset-db":
+        from pathlib import Path
+        data_dir = Path("data")
+        deleted = False
+        if data_dir.exists():
+            for ext in ["*.db", "*.sqlite3", "*.sqlite"]:
+                for db_file in data_dir.glob(ext):
+                    try:
+                        db_file.unlink()
+                        print(f"✅ Deleted {db_file}")
+                        deleted = True
+                    except Exception as e:
+                        print(f"❌ Failed to delete {db_file}: {e}. Ensure the API and Celery workers are completely stopped.")
+        if not deleted:
+            print("ℹ️ No database files found to delete.")
+        else:
+            print("🔄 Database reset complete. The schema will be recreated on the next run.")
     elif args.command in ["dashboard", "api"]:
         # Import app here to avoid requiring all dependencies for other commands
         from app.api import app

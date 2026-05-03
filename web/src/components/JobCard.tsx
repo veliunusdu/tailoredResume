@@ -10,23 +10,8 @@ import {
 } from "lucide-react";
 import { Job, KeywordAnalysis, InterviewQuestion } from "../types";
 
-type ApplyStatus = "idle" | "queued" | "running" | "success" | "failed" | "manual_required";
-
-interface ApplyAttempt {
-  id: string;
-  status: ApplyStatus;
-  job_board: string;
-  error_msg: string | null;
-  screenshot: string | null;
-  dry_run: number;
-  created_at: number;
-}
-
 export function JobCard({ job, index }: { job: Job; index: number }) {
   const [loadingTailor, setLoadingTailor] = useState(false);
-  const [applyStatus, setApplyStatus]     = useState<ApplyStatus>("idle");
-  const [attemptId, setAttemptId]         = useState<string | null>(null);
-  const [attempt, setAttempt]             = useState<ApplyAttempt | null>(null);
   const [tailorMsg, setTailorMsg]         = useState<string | null>(null);
 
   // Keyword Heatmap state
@@ -39,23 +24,6 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
   const [questions, setQuestions]               = useState<InterviewQuestion[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Poll apply status while queued/running
-  useEffect(() => {
-    if (!attemptId || (applyStatus !== "queued" && applyStatus !== "running")) return;
-    const interval = setInterval(async () => {
-      try {
-        const res  = await fetch(`http://localhost:8000/jobs/${job.id}/apply-status`);
-        const data: ApplyAttempt[] = await res.json();
-        const current = data.find(a => a.id === attemptId);
-        if (current) {
-          setAttempt(current);
-          setApplyStatus(current.status);
-        }
-      } catch (_) {}
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [attemptId, applyStatus, job.id]);
 
   const getScoreStyle = (score: number) => {
     if (score >= 7) return { text: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
@@ -75,27 +43,6 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
     } finally {
       setLoadingTailor(false);
     }
-  };
-
-  const handleApply = async () => {
-    setApplyStatus("queued");
-    try {
-      const res  = await fetch(`http://localhost:8000/jobs/${job.id}/apply?dry_run=true`, { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        setAttemptId(data.attempt_id);
-      } else {
-        setApplyStatus("failed");
-      }
-    } catch (_) {
-      setApplyStatus("failed");
-    }
-  };
-
-  const handleRetry = () => {
-    setApplyStatus("idle");
-    setAttemptId(null);
-    setAttempt(null);
   };
 
   const handleFetchKeywords = async () => {
@@ -151,50 +98,6 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
       setError("Network error: Could not reach the API server.");
     } finally {
       setLoadingQuestions(false);
-    }
-  };
-
-  // ── Apply button state machine ────────────────────────────────────────────
-  const applyButton = () => {
-    const base = "flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all";
-    switch (applyStatus) {
-      case "idle":
-        return (
-          <button onClick={handleApply}
-            className={`${base} bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white shadow-lg shadow-indigo-500/25 hover:-translate-y-0.5`}>
-            <Zap className="w-4 h-4" /> Auto Apply
-          </button>
-        );
-      case "queued":
-        return (
-          <button disabled className={`${base} bg-amber-500/15 text-amber-500 border border-amber-500/30 cursor-not-allowed`}>
-            <Loader2 className="w-4 h-4 animate-spin" /> Queued…
-          </button>
-        );
-      case "running":
-        return (
-          <button disabled className={`${base} bg-blue-500/15 text-blue-400 border border-blue-500/30 cursor-not-allowed`}>
-            <Loader2 className="w-4 h-4 animate-spin" /> Bot Running…
-          </button>
-        );
-      case "success":
-        return (
-          <button disabled className={`${base} bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 cursor-not-allowed`}>
-            <CheckCircle2 className="w-4 h-4" /> Applied ✓
-          </button>
-        );
-      case "failed":
-        return (
-          <button onClick={handleRetry} className={`${base} bg-rose-500/15 text-rose-500 border border-rose-500/30 hover:bg-rose-500/25`}>
-            <XCircle className="w-4 h-4" /> Failed — Retry?
-          </button>
-        );
-      case "manual_required":
-        return (
-          <button onClick={handleRetry} className={`${base} bg-orange-500/15 text-orange-400 border border-orange-500/30 hover:bg-orange-500/25`}>
-            <AlertTriangle className="w-4 h-4" /> Review Needed ⚡
-          </button>
-        );
     }
   };
 
@@ -254,7 +157,10 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
             Questions
           </button>
 
-          {applyButton()}
+          <a href={job.url} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white shadow-lg shadow-indigo-500/25 hover:-translate-y-0.5">
+            Apply Now
+          </a>
         </div>
       </div>
 
@@ -277,38 +183,6 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
             className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm font-medium ${tailorMsg.startsWith("✅") ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}>
             {tailorMsg}
-          </motion.div>
-        )}
-
-        {applyStatus === "running" && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-            className="mb-4 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium flex items-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-            Bot is navigating and filling the application form… Check your terminal for live logs.
-          </motion.div>
-        )}
-
-        {applyStatus === "failed" && attempt?.error_msg && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-            className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm font-medium flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span><b>Error:</b> {attempt.error_msg}</span>
-          </motion.div>
-        )}
-
-        {applyStatus === "manual_required" && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-            className="mb-4 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm font-medium flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>The bot got stuck (login wall or unrecognized question). Please apply manually for this job.</span>
-          </motion.div>
-        )}
-
-        {applyStatus === "success" && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-            className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-medium flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            {attempt?.dry_run ? "Dry run complete — form was filled but not submitted. Check terminal for screenshots." : "Application submitted successfully! ✓"}
           </motion.div>
         )}
 

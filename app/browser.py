@@ -120,7 +120,14 @@ def _get_resume_path(job: dict) -> Path | None:
     if base.exists():
         _logger.info("   📄 Using base resume (no tailored version found).")
         return base
-    _logger.warning("   ⚠️  No resume found!")
+        
+    # Fallback to any markdown file in DATA_DIR (multi-profile fallback)
+    markdown_files = list(DATA_DIR.glob("*.md"))
+    if markdown_files:
+        _logger.info("   📄 Using alternative profile: %s", markdown_files[0].name)
+        return markdown_files[0]
+        
+    _logger.warning("   ⚠️  No resume found in %s!", DATA_DIR)
     return None
 
 
@@ -160,7 +167,7 @@ def apply_to_job(job: dict, dry_run: bool = True, attempt_id: str = None) -> boo
     job_id_short = job.get("id", "unknown")[:8]
 
     _logger.info("━" * 60)
-    _logger.info("🤖 AUTO-APPLY STARTED")
+    _logger.info("🤖 JOB APPLICATION STARTED")
     _logger.info("   Title   : %s", job.get("title"))
     _logger.info("   Company : %s", job.get("company"))
     _logger.info("   Score   : %s/10", job.get("score"))
@@ -281,7 +288,8 @@ def apply_to_job(job: dict, dry_run: bool = True, attempt_id: str = None) -> boo
             return result.success
 
         except Exception as e:
-            _logger.error("💥 Unexpected error: %s", e)
+            error_message = str(e)
+            _logger.error("💥 Unexpected error: %s", error_message)
             
             # Resilience: Capture DOM and diagnose UI changes
             try:
@@ -291,21 +299,22 @@ def apply_to_job(job: dict, dry_run: bool = True, attempt_id: str = None) -> boo
                 
                 import threading
                 # Offload AI analysis and webhook to a background thread
-                def _background_diagnosis():
-                    suggestion = generate_selector_patch(str(e), minified)
+                def _background_diagnosis(err_msg, plat, captured_dom):
+                    suggestion = generate_selector_patch(err_msg, captured_dom)
                     if attempt_id:
                         from app.db import update_apply_status
                         # Pass all required args correctly to update_apply_status
                         update_apply_status(
                             attempt_id, 
                             "failed", 
-                            job_board=platform if 'platform' in locals() else None, 
-                            error_msg=str(e), 
+                            job_board=plat, 
+                            error_msg=err_msg, 
                             ai_patch_suggestion=suggestion
                         )
-                    send_webhook_alert(job.get("title", "Unknown"), platform if 'platform' in locals() else "generic", str(e), suggestion)
+                    send_webhook_alert(job.get("title", "Unknown"), plat or "generic", err_msg, suggestion)
                 
-                threading.Thread(target=_background_diagnosis, daemon=True).start()
+                current_platform = platform if 'platform' in locals() else None
+                threading.Thread(target=_background_diagnosis, args=(error_message, current_platform, minified), daemon=True).start()
                 _logger.info("🤖 AI Resilience diagnosis started in background.")
             except Exception as re:
                 _logger.warning("⚠️ Failed to capture DOM for resilience: %s", re)
@@ -318,28 +327,9 @@ def apply_to_job(job: dict, dry_run: bool = True, attempt_id: str = None) -> boo
             except Exception:
                 pass
             if attempt_id:
-                update_apply_status(attempt_id, "failed", error_msg=str(e), screenshot=screenshot_path)
+                update_apply_status(attempt_id, "failed", error_msg=error_message, screenshot=screenshot_path)
             return False
 
         finally:
             context.close()
             _logger.info("🔒 Browser closed.")
-
-
-# ── Batch Runner ──────────────────────────────────────────────────────────────
-
-def run_autonomous_applications(jobs: list[dict], dry_run: bool = True) -> None:
-    """Apply to a list of jobs with rate-limiting delays between each."""
-    applied_count = 0
-    for job in jobs:
-        if applied_count >= MAX_APPLICATIONS_PER_RUN:
-            _logger.info("🛑 Reached max applications per run (%d).", MAX_APPLICATIONS_PER_RUN)
-            break
-        _logger.info("Starting auto-apply for: %s @ %s", job.get("title"), job.get("company"))
-        if apply_to_job(job, dry_run=dry_run):
-            applied_count += 1
-        # Rate-limit: 30–60 second random delay between applications
-        delay = random.uniform(30, 60)
-        _logger.info("⏳ Waiting %.0fs before next application (rate limiting)...", delay)
-        time.sleep(delay)
-    _logger.info("🏁 Auto-apply run complete. Applied to %d job(s).", applied_count)

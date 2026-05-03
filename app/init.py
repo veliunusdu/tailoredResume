@@ -32,10 +32,11 @@ def run_init():
     data_dir.mkdir(exist_ok=True)
     base_resume = data_dir / "base_resume.md"
     
-    if not base_resume.exists():
-        print("\n[2] Setting up Base Resume...")
-        print("Please enter the absolute path to your base resume (markdown or text file),")
-        resume_path = input("or press Enter to create an empty template: ").strip()
+    if not list(data_dir.glob("*.md")):
+        print("\n[2] Setting up Base Resumes (Multi-Profile Support)...")
+        print("You can place multiple resumes (e.g., frontend.md, backend.md) in the 'data' folder.")
+        print("Please enter the absolute path to your primary base resume,")
+        resume_path = input("or press Enter to create a default template: ").strip()
         
         if resume_path and Path(resume_path).exists():
             shutil.copy(resume_path, base_resume)
@@ -44,7 +45,7 @@ def run_init():
             base_resume.write_text("# John Doe\n\n## Experience\n\n* Software Engineer...", encoding="utf-8")
             print(f"Created a template base resume at {base_resume}")
     else:
-        print("\n[2] Base resume already exists. Skipping.")
+        print(f"\n[2] Base resume(s) already exist in {data_dir}. Skipping.")
         
     print("\nSetup Complete!")
-    print("You can now run `python main.py run` to start the autonomous pipeline.")
+    print("You can now start the application by running the backend (`python main.py dashboard`) and the Celery worker.")

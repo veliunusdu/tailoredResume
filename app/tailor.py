@@ -4,6 +4,8 @@ import os
 import json
 from pathlib import Path
 import litellm
+import instructor
+from pydantic import BaseModel, Field
 from app.config import DATA_DIR, GEMINI_API_KEY, GEMINI_MODEL
 from app.logger import get_logger
 
@@ -12,14 +14,66 @@ _logger = get_logger(__name__)
 # Ensure API key is in environment for litellm
 os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
 
-BASE_RESUME_PATH = DATA_DIR / "base_resume.md"
 APPLICATIONS_DIR = DATA_DIR / "applications"
 
 
-def get_base_resume() -> str | None:
-    if BASE_RESUME_PATH.exists():
-        return BASE_RESUME_PATH.read_text(encoding="utf-8")
-    return None
+class ProfileSelection(BaseModel):
+    selected_file: str = Field(description="The filename of the most relevant resume profile")
+    reason: str = Field(description="Brief reason for this selection based on job requirements")
+
+def get_best_base_resume(job_description: str) -> tuple[str | None, str | None]:
+    """Find the best base resume from DATA_DIR for the given job description."""
+    resume_files = list(DATA_DIR.glob("*.md"))
+    
+    if not resume_files:
+        return None, None
+        
+    if len(resume_files) == 1:
+        return resume_files[0].name, resume_files[0].read_text(encoding="utf-8")
+        
+    # Multiple profiles found, use LLM to route
+    profiles_summary = ""
+    profiles_dict = {}
+    for rf in resume_files:
+        content = rf.read_text(encoding="utf-8")
+        profiles_dict[rf.name] = content
+        profiles_summary += f"\n--- {rf.name} ---\n{content[:1000]}...\n"
+
+    prompt = f"""
+    You are an expert recruiter. Route the JOB DESCRIPTION to the most suitable candidate profile.
+    Choose the ONE resume filename that best fits the job requirements.
+    
+    JOB DESCRIPTION:
+    {job_description[:2000]}
+    
+    AVAILABLE PROFILES (Excerpts):
+    {profiles_summary}
+    """
+
+    try:
+        model_name = GEMINI_MODEL
+        if "gemini" in model_name and not model_name.startswith("gemini/"):
+            model_name = f"gemini/{model_name}"
+            
+        client = instructor.from_litellm(litellm.completion)
+        response = client.chat.completions.create(
+            model=model_name,
+            response_model=ProfileSelection,
+            messages=[{"role": "user", "content": prompt}],
+            api_key=GEMINI_API_KEY
+        )
+        
+        selected = response.selected_file
+        if selected in profiles_dict:
+            _logger.info("🤖 AI selected profile '%s'. Reason: %s", selected, response.reason)
+            return selected, profiles_dict[selected]
+            
+        _logger.warning("AI selected unknown profile '%s', falling back to first.", selected)
+        return resume_files[0].name, profiles_dict[resume_files[0].name]
+        
+    except Exception as e:
+        _logger.error("Failed to select best profile: %s. Falling back to first.", e)
+        return resume_files[0].name, profiles_dict[resume_files[0].name]
 
 
 def generate_tailored_resume(job_description: str, base_resume: str) -> str | None:
@@ -97,11 +151,6 @@ def generate_cover_letter(job_description: str, base_resume: str, company: str, 
 
 def prepare_application(job: dict) -> None:
     """Generate and save tailored materials for a job."""
-    base_resume = get_base_resume()
-    if not base_resume:
-        _logger.warning("No base resume found at %s. Skipping tailoring.", BASE_RESUME_PATH)
-        return
-
     company = job.get("company", "Company")
     title = job.get("title", "Role")
     job_id = job.get("id", "unknown_id")
@@ -111,7 +160,12 @@ def prepare_application(job: dict) -> None:
         _logger.warning("No description available for job %s. Cannot tailor.", job_id)
         return
         
-    _logger.info("Tailoring resume for %s at %s...", title, company)
+    resume_name, base_resume = get_best_base_resume(desc)
+    if not base_resume:
+        _logger.warning("No base resumes found in %s. Skipping tailoring.", DATA_DIR)
+        return
+        
+    _logger.info("Tailoring resume for %s at %s using base profile '%s'...", title, company, resume_name)
     tailored_resume = generate_tailored_resume(desc, base_resume)
     
     _logger.info("Generating cover letter for %s at %s...", title, company)
@@ -127,4 +181,3 @@ def prepare_application(job: dict) -> None:
         (job_dir / "cover_letter.md").write_text(cover_letter, encoding="utf-8")
         
     _logger.info("Application materials saved to %s", job_dir)
-
