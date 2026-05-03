@@ -11,9 +11,10 @@ from app.db import (
     get_all_apply_attempts,
     get_apply_attempt,
 )
-from app.tailor import prepare_application
+from app.tailor import prepare_application, get_base_resume
 from app.browser import apply_to_job
 from app.tasks import prepare_application_task, apply_to_job_task
+from app.llm import analyze_job_keywords, generate_interview_questions
 from app.celery_app import app as celery_app
 from app.sessions import record_session, session_exists, delete_session
 from app.schemas import Job, Stats, ApplyResponse, ApplyStatus, SessionResponse
@@ -69,6 +70,48 @@ async def tailor_job(
     
     task = prepare_application_task.delay(job_id)
     return {"status": "tailoring_queued", "task_id": task.id}
+
+
+@app.get("/jobs/{job_id}/keywords", tags=["Tailoring"])
+async def get_job_keywords(
+    job_id: str = Path(..., description="The unique ID of the job")
+):
+    """Analyze keywords for a job against the base resume (on-the-fly)."""
+    job = get_job_by_id(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    base_resume = get_base_resume()
+    if not base_resume:
+        raise HTTPException(status_code=400, detail="Base resume not found. Please upload one first.")
+    
+    desc = job.get("description", "")
+    if not desc:
+        raise HTTPException(status_code=400, detail="Job has no description to analyze.")
+        
+    analysis = analyze_job_keywords(desc, base_resume)
+    return analysis
+
+
+@app.get("/jobs/{job_id}/interview-questions", tags=["Tailoring"])
+async def get_job_interview_questions(
+    job_id: str = Path(..., description="The unique ID of the job")
+):
+    """Generate tailored interview questions for a job against the base resume (on-the-fly)."""
+    job = get_job_by_id(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    base_resume = get_base_resume()
+    if not base_resume:
+        raise HTTPException(status_code=400, detail="Base resume not found. Please upload one first.")
+    
+    desc = job.get("description", "")
+    if not desc:
+        raise HTTPException(status_code=400, detail="Job has no description to analyze.")
+        
+    questions = generate_interview_questions(desc, base_resume)
+    return questions
 
 
 # ── Apply Endpoints ───────────────────────────────────────────────────────────

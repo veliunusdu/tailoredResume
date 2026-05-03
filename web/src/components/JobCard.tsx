@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Briefcase, ExternalLink, MapPin, DollarSign,
   Clock, BarChart3, CheckCircle2, Sparkles, Zap,
-  Loader2, AlertCircle, AlertTriangle, XCircle, RefreshCw
+  Loader2, AlertCircle, AlertTriangle, XCircle, RefreshCw,
+  Activity, Target, MessageSquare, HelpCircle
 } from "lucide-react";
-import { Job } from "../types";
+import { Job, KeywordAnalysis, InterviewQuestion } from "../types";
 
 type ApplyStatus = "idle" | "queued" | "running" | "success" | "failed" | "manual_required";
 
@@ -27,6 +28,17 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
   const [attemptId, setAttemptId]         = useState<string | null>(null);
   const [attempt, setAttempt]             = useState<ApplyAttempt | null>(null);
   const [tailorMsg, setTailorMsg]         = useState<string | null>(null);
+
+  // Keyword Heatmap state
+  const [showHeatmap, setShowHeatmap]           = useState(false);
+  const [keywords, setKeywords]                 = useState<KeywordAnalysis | null>(null);
+  const [loadingKeywords, setLoadingKeywords]   = useState(false);
+
+  // Interview Questions state
+  const [showQuestions, setShowQuestions]       = useState(false);
+  const [questions, setQuestions]               = useState<InterviewQuestion[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Poll apply status while queued/running
   useEffect(() => {
@@ -84,6 +96,62 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
     setApplyStatus("idle");
     setAttemptId(null);
     setAttempt(null);
+  };
+
+  const handleFetchKeywords = async () => {
+    if (keywords) {
+      setShowHeatmap(!showHeatmap);
+      return;
+    }
+    setLoadingKeywords(true);
+    setError(null);
+    try {
+      const res = await fetch(`http://localhost:8000/jobs/${job.id}/keywords`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.found.length === 0 && data.missing.length === 0) {
+          setError("No keywords could be extracted from this job description.");
+        } else {
+          setKeywords(data);
+          setShowHeatmap(true);
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.detail || "Failed to analyze keywords. Your API key might be invalid.");
+      }
+    } catch (_) {
+      setError("Network error: Could not reach the API server.");
+    } finally {
+      setLoadingKeywords(false);
+    }
+  };
+
+  const handleFetchQuestions = async () => {
+    if (questions.length > 0) {
+      setShowQuestions(!showQuestions);
+      return;
+    }
+    setLoadingQuestions(true);
+    setError(null);
+    try {
+      const res = await fetch(`http://localhost:8000/jobs/${job.id}/interview-questions`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.length === 0) {
+          setError("No interview questions could be generated for this job.");
+        } else {
+          setQuestions(data);
+          setShowQuestions(true);
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.detail || "Failed to generate questions. Check your API key.");
+      }
+    } catch (_) {
+      setError("Network error: Could not reach the API server.");
+    } finally {
+      setLoadingQuestions(false);
+    }
   };
 
   // ── Apply button state machine ────────────────────────────────────────────
@@ -174,12 +242,37 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
             Tailor
           </button>
 
+          <button onClick={handleFetchKeywords} disabled={loadingKeywords}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all border ${showHeatmap ? "bg-indigo-500 text-white border-indigo-500" : "bg-[var(--background)] border-[var(--border)] text-[var(--foreground)] hover:border-indigo-500"}`}>
+            {loadingKeywords ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
+            Heatmap
+          </button>
+
+          <button onClick={handleFetchQuestions} disabled={loadingQuestions}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all border ${showQuestions ? "bg-amber-500 text-white border-amber-500" : "bg-[var(--background)] border-[var(--border)] text-[var(--foreground)] hover:border-amber-500"}`}>
+            {loadingQuestions ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
+            Questions
+          </button>
+
           {applyButton()}
         </div>
       </div>
 
       {/* Status banners */}
       <AnimatePresence>
+        {error && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+            className="mb-4 p-3 rounded-xl flex items-center justify-between gap-2 text-sm font-medium bg-rose-500/10 text-rose-500 border border-rose-500/20">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+            <button onClick={() => setError(null)} className="p-1 hover:bg-rose-500/20 rounded-md transition-colors">
+              <XCircle className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+
         {tailorMsg && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
             className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm font-medium ${tailorMsg.startsWith("✅") ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}>
@@ -216,6 +309,78 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
             className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-medium flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             {attempt?.dry_run ? "Dry run complete — form was filled but not submitted. Check terminal for screenshots." : "Application submitted successfully! ✓"}
+          </motion.div>
+        )}
+
+        {showHeatmap && keywords && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+            className="mb-6 p-5 rounded-2xl bg-indigo-500/5 border border-indigo-500/20">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="w-4 h-4 text-indigo-500" />
+              <h4 className="text-xs font-black uppercase tracking-widest text-indigo-500">ATS Keyword Heatmap</h4>
+            </div>
+            
+            <div className="space-y-4">
+              {keywords.missing.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-tighter text-rose-500/70 mb-2">Missing Keywords</p>
+                  <div className="flex flex-wrap gap-2">
+                    {keywords.missing.map(kw => (
+                      <span key={kw} className="px-2.5 py-1 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[10px] font-bold">
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {keywords.found.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-tighter text-emerald-500/70 mb-2">Found in Resume</p>
+                  <div className="flex flex-wrap gap-2">
+                    {keywords.found.map(kw => (
+                      <span key={kw} className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-bold">
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {showQuestions && questions.length > 0 && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+            className="mb-6 p-5 rounded-2xl bg-amber-500/5 border border-amber-500/20">
+            <div className="flex items-center gap-2 mb-4">
+              <HelpCircle className="w-4 h-4 text-amber-500" />
+              <h4 className="text-xs font-black uppercase tracking-widest text-amber-500">Tailored Interview Questions</h4>
+            </div>
+            
+            <div className="space-y-4">
+              {questions.map((q, i) => (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }} 
+                  animate={{ opacity: 1, x: 0 }} 
+                  transition={{ delay: i * 0.1 }}
+                  key={i} 
+                  className="bg-[var(--background)] p-4 rounded-xl border border-[var(--border)]"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <p className="text-sm font-bold text-[var(--foreground)]">
+                      {q.question}
+                    </p>
+                    <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-black uppercase bg-[var(--secondary)] text-[var(--muted-foreground)]">
+                      {q.type}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[var(--muted-foreground)] italic">
+                    <b>Focus:</b> {q.focus}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

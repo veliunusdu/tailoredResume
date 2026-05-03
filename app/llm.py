@@ -76,6 +76,44 @@ Return ONLY valid JSON in this exact schema, a JSON array of objects:
 Commit to a verdict first. Score 8-10 = strong match, 4-7 = possible, 0-3 = not suitable.
 """.strip()
 
+_SYSTEM_PROMPT_KEYWORDS = """
+You are an expert ATS (Applicant Tracking System) optimizer.
+Your task is to compare a JOB DESCRIPTION against a BASE RESUME and identify key technical skills, tools, and keywords.
+
+1. Extract the top 10-15 most important keywords from the JOB DESCRIPTION.
+2. Determine if each keyword is present in the BASE RESUME.
+3. Be strict but fair. If a skill is implied (e.g., "Python" in JD, "Django" in Resume), it might still be considered missing unless the keyword "Python" actually appears.
+
+Return ONLY valid JSON in this exact schema:
+{
+  "found": ["Keyword1", "Keyword2", ...],
+  "missing": ["Keyword3", "Keyword4", ...]
+}
+""".strip()
+
+_SYSTEM_PROMPT_INTERVIEW = """
+You are a senior technical interviewer at a top tech company.
+Your task is to generate 5-7 high-quality interview questions tailored to a specific candidate for a specific job.
+
+I will provide you with a JOB DESCRIPTION and the candidate's BASE RESUME.
+
+CRITICAL INSTRUCTIONS:
+1. Generate a mix of:
+   - Technical: Deep dives into skills mentioned inJD and Resume.
+   - Experience-based: Questions about specific projects in the Resume relevant to the JD.
+   - Behavioral: Tailored to the company's likely culture based on the JD.
+2. For each question, provide a "focus" explanation (why you're asking it).
+
+Return ONLY valid JSON in this exact schema, a JSON array of objects:
+[
+  {
+    "question": "The actual question",
+    "type": "Technical" | "Behavioral" | "Experience",
+    "focus": "Brief explanation of what this question tests"
+  }
+]
+""".strip()
+
 @retry(
     max_attempts=RETRY_ATTEMPTS,
     initial_delay_sec=RETRY_INITIAL_DELAY_SEC,
@@ -83,9 +121,9 @@ Commit to a verdict first. Score 8-10 = strong match, 4-7 = possible, 0-3 = not 
     rate_limit_cooldown_sec=LLM_RATE_LIMIT_COOLDOWN_SEC,
     logger=_logger,
 )
-def _call_llm_raw(user_prompt: str, is_batch: bool = False) -> Any:
+def _call_llm_raw(user_prompt: str, is_batch: bool = False, system_prompt: str = None) -> Any:
     _rate_limiter.wait()
-    sys_prompt = _SYSTEM_PROMPT_BATCH if is_batch else _SYSTEM_PROMPT_SINGLE
+    sys_prompt = system_prompt or (_SYSTEM_PROMPT_BATCH if is_batch else _SYSTEM_PROMPT_SINGLE)
     
     # Prefix with gemini/ for litellm routing if it's a gemini model
     model_name = GEMINI_MODEL
@@ -182,3 +220,27 @@ def score_jobs_batch(jobs: list[dict]) -> list[dict]:
     except Exception as exc:
         _logger.error("Batch LLM call failed: %s. Falling back to per-job scoring.", exc)
         return [score_job(job) for job in jobs]
+
+def analyze_job_keywords(job_description: str, base_resume: str) -> dict:
+    """Analyze keywords in job description and find matches/misses in base resume."""
+    user_prompt = (
+        f"=== JOB DESCRIPTION ===\n{job_description[:LLM_MAX_DESC_CHARS * 2]}\n\n"
+        f"=== BASE RESUME ===\n{base_resume[:LLM_MAX_DESC_CHARS * 2]}"
+    )
+    try:
+        return _call_llm_raw(user_prompt, system_prompt=_SYSTEM_PROMPT_KEYWORDS)
+    except Exception as exc:
+        _logger.error("Keyword analysis LLM call failed: %s", exc)
+        return {"found": [], "missing": []}
+
+def generate_interview_questions(job_description: str, base_resume: str) -> list[dict]:
+    """Generate tailored interview questions based on job description and base resume."""
+    user_prompt = (
+        f"=== JOB DESCRIPTION ===\n{job_description[:LLM_MAX_DESC_CHARS * 2]}\n\n"
+        f"=== BASE RESUME ===\n{base_resume[:LLM_MAX_DESC_CHARS * 2]}"
+    )
+    try:
+        return _call_llm_raw(user_prompt, system_prompt=_SYSTEM_PROMPT_INTERVIEW, is_batch=True)
+    except Exception as exc:
+        _logger.error("Interview questions LLM call failed: %s", exc)
+        return []
