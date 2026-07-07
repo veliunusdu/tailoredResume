@@ -1,12 +1,10 @@
 """Resume tailoring and cover letter generation module."""
 
 import os
-import json
-from pathlib import Path
 import litellm
 import instructor
 from pydantic import BaseModel, Field
-from app.config import DATA_DIR, GEMINI_API_KEY, GEMINI_MODEL
+from app.config import GEMINI_API_KEY, GEMINI_MODEL
 from app.logger import get_logger
 
 _logger = get_logger(__name__)
@@ -14,66 +12,35 @@ _logger = get_logger(__name__)
 # Ensure API key is in environment for litellm
 os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
 
-APPLICATIONS_DIR = DATA_DIR / "applications"
-
 
 class ProfileSelection(BaseModel):
     selected_file: str = Field(description="The filename of the most relevant resume profile")
     reason: str = Field(description="Brief reason for this selection based on job requirements")
 
-def get_best_base_resume(job_description: str) -> tuple[str | None, str | None]:
-    """Find the best base resume from DATA_DIR for the given job description."""
+def get_best_base_resume(job_description: str, user_id: str | None = None) -> tuple[str | None, str | None]:
+    """
+    Find the best base resume for the given job description.
+    When user_id is provided, queries the PostgreSQL resumes table.
+    Falls back to local DATA_DIR/*.md for backward compatibility.
+    """
+    if user_id:
+        from app.resumes import get_best_resume
+        return get_best_resume(user_id=user_id, job_description=job_description)
+
+    # Legacy local-file fallback (single-user / dev mode)
+    from app.config import DATA_DIR
     resume_files = list(DATA_DIR.glob("*.md"))
-    
     if not resume_files:
         return None, None
-        
     if len(resume_files) == 1:
         return resume_files[0].name, resume_files[0].read_text(encoding="utf-8")
-        
-    # Multiple profiles found, use LLM to route
-    profiles_summary = ""
-    profiles_dict = {}
-    for rf in resume_files:
-        content = rf.read_text(encoding="utf-8")
-        profiles_dict[rf.name] = content
-        profiles_summary += f"\n--- {rf.name} ---\n{content[:1000]}...\n"
 
-    prompt = f"""
-    You are an expert recruiter. Route the JOB DESCRIPTION to the most suitable candidate profile.
-    Choose the ONE resume filename that best fits the job requirements.
-    
-    JOB DESCRIPTION:
-    {job_description[:2000]}
-    
-    AVAILABLE PROFILES (Excerpts):
-    {profiles_summary}
-    """
-
-    try:
-        model_name = GEMINI_MODEL
-        if "gemini" in model_name and not model_name.startswith("gemini/"):
-            model_name = f"gemini/{model_name}"
-            
-        client = instructor.from_litellm(litellm.completion)
-        response = client.chat.completions.create(
-            model=model_name,
-            response_model=ProfileSelection,
-            messages=[{"role": "user", "content": prompt}],
-            api_key=GEMINI_API_KEY
-        )
-        
-        selected = response.selected_file
-        if selected in profiles_dict:
-            _logger.info("🤖 AI selected profile '%s'. Reason: %s", selected, response.reason)
-            return selected, profiles_dict[selected]
-            
-        _logger.warning("AI selected unknown profile '%s', falling back to first.", selected)
-        return resume_files[0].name, profiles_dict[resume_files[0].name]
-        
-    except Exception as e:
-        _logger.error("Failed to select best profile: %s. Falling back to first.", e)
-        return resume_files[0].name, profiles_dict[resume_files[0].name]
+    # Multiple local files — pick the first one (LLM routing moved to resumes.py)
+    _logger.warning(
+        "Multiple local resumes found and no user_id provided. Using %s.",
+        resume_files[0].name,
+    )
+    return resume_files[0].name, resume_files[0].read_text(encoding="utf-8")
 
 
 def generate_tailored_resume(job_description: str, base_resume: str) -> str | None:
@@ -149,35 +116,49 @@ def generate_cover_letter(job_description: str, base_resume: str, company: str, 
         return None
 
 
-def prepare_application(job: dict) -> None:
-    """Generate and save tailored materials for a job."""
+def prepare_application(job: dict, user_id: str | None = None) -> dict:
+    """
+    Generate tailored resume and cover letter for a job.
+    Returns a dict with 'tailored_resume' and 'cover_letter' keys.
+    When user_id is provided, fetches the resume from the DB.
+    """
     company = job.get("company", "Company")
     title = job.get("title", "Role")
     job_id = job.get("id", "unknown_id")
     desc = job.get("description", "")
-    
+
+    result = {"tailored_resume": None, "cover_letter": None}
+
     if not desc:
         _logger.warning("No description available for job %s. Cannot tailor.", job_id)
-        return
-        
-    resume_name, base_resume = get_best_base_resume(desc)
+        return result
+
+    resume_name, base_resume = get_best_base_resume(desc, user_id=user_id)
     if not base_resume:
-        _logger.warning("No base resumes found in %s. Skipping tailoring.", DATA_DIR)
-        return
-        
-    _logger.info("Tailoring resume for %s at %s using base profile '%s'...", title, company, resume_name)
+        _logger.warning("No base resume found for user %s. Skipping tailoring.", user_id)
+        return result
+
+    _logger.info("Tailoring resume for %s at %s using profile '%s'...", title, company, resume_name)
     tailored_resume = generate_tailored_resume(desc, base_resume)
-    
+
     _logger.info("Generating cover letter for %s at %s...", title, company)
     cover_letter = generate_cover_letter(desc, base_resume, company, title)
-    
-    # Save to disk
-    job_dir = APPLICATIONS_DIR / f"{company.replace(' ', '_')}_{job_id[:6]}"
-    job_dir.mkdir(parents=True, exist_ok=True)
-    
-    if tailored_resume:
-        (job_dir / "tailored_resume.md").write_text(tailored_resume, encoding="utf-8")
-    if cover_letter:
-        (job_dir / "cover_letter.md").write_text(cover_letter, encoding="utf-8")
-        
-    _logger.info("Application materials saved to %s", job_dir)
+
+    result["tailored_resume"] = tailored_resume
+    result["cover_letter"] = cover_letter
+
+    # Optionally save to local disk in dev mode (when no user_id)
+    if not user_id:
+        from pathlib import Path
+        from app.config import DATA_DIR
+        applications_dir = DATA_DIR / "applications"
+        job_dir = applications_dir / f"{company.replace(' ', '_')}_{job_id[:6]}"
+        job_dir.mkdir(parents=True, exist_ok=True)
+        if tailored_resume:
+            (job_dir / "tailored_resume.md").write_text(tailored_resume, encoding="utf-8")
+        if cover_letter:
+            (job_dir / "cover_letter.md").write_text(cover_letter, encoding="utf-8")
+        _logger.info("Application materials saved to %s", job_dir)
+
+    _logger.info("✅ Application materials ready for job %s", job_id)
+    return result

@@ -21,7 +21,6 @@ from app.db      import (
 )
 from app.logger  import get_logger
 from app.tailor  import prepare_application
-from app.browser import run_autonomous_applications
 
 _logger = get_logger(__name__)
 
@@ -38,56 +37,52 @@ def _print_job(job: dict) -> None:
     print()
 
 
-def get_jobs() -> tuple[list[dict], list[dict]]:
-    _logger.info("Agent run started")
+def get_jobs(user_id: str) -> tuple[list[dict], list[dict]]:
+    _logger.info("Agent run started for user %s", user_id)
 
     # 1 & 2 — Fetch & Filter (Only if cache is stale)
-    if should_fetch_jobs():
-        raw_jobs = fetch_jobs()
-        filtered = filter_jobs(raw_jobs)
+    if should_fetch_jobs(user_id):
+        raw_jobs = fetch_jobs(user_id)
+        filtered = filter_jobs(raw_jobs, user_id)
         _logger.info("Fetched %s raw jobs, rule-filtered to %s", len(raw_jobs), len(filtered))
         
-        inserted = save_jobs(filtered)
+        inserted = save_jobs(filtered, user_id=user_id)
         _logger.info("Inserted %s new jobs into the database.", inserted)
     else:
         _logger.info("Recent fetch detected. Using jobs from the database.")
 
     # 3 — Deep Enrichment & LLM scoring
-    uncached_jobs = get_unscored_jobs()
+    uncached_jobs = get_unscored_jobs(user_id)
     _logger.info("Found %s unscored jobs in the database.", len(uncached_jobs))
 
     if uncached_jobs:
-        _logger.info("Enriching descriptions for unscored jobs via Celery...")
-        
-        enrich_job_group = group(enrich_job_task.s(job["id"]) for job in uncached_jobs)
-        enrich_result = enrich_job_group.apply_async()
+        _logger.info("Enriching descriptions for unscored jobs...")
         
         with tqdm(total=len(uncached_jobs), desc="Enriching Jobs", unit="job") as pbar:
-            while not enrich_result.ready():
-                import time
-                time.sleep(0.5)
-                # Note: completed_count calculation can be complex with groups, 
-                # but for CLI we'll just wait or poll.
-            pbar.update(len(uncached_jobs))
+            for job in uncached_jobs:
+                try:
+                    enrich_job_task(job["id"], user_id)
+                except Exception as e:
+                    _logger.error(f"Failed to enrich job %s: %s", job["id"], e)
+                pbar.update(1)
 
         batches = [
             uncached_jobs[i : i + LLM_BATCH_SIZE]
             for i in range(0, len(uncached_jobs), LLM_BATCH_SIZE)
         ]
         
-        _logger.info("Processing %s batches via Celery workers...", len(batches))
+        _logger.info("Processing %s batches...", len(batches))
         
-        score_job_group = group(score_jobs_task.s([j["id"] for j in batch]) for batch in batches)
-        score_result = score_job_group.apply_async()
-
         with tqdm(total=len(batches), desc="Scoring Batches", unit="batch") as pbar:
-            while not score_result.ready():
-                import time
-                time.sleep(0.5)
-            pbar.update(len(batches))
+            for batch in batches:
+                try:
+                    score_jobs_task([j["id"] for j in batch], user_id)
+                except Exception as e:
+                    _logger.error(f"Failed to score batch: %s", e)
+                pbar.update(1)
 
     # 4 - Retrieve and sort by score descending
-    all_scored = get_all_scored_jobs()
+    all_scored = get_all_scored_jobs(user_id)
     strong = [j for j in all_scored if j.get("score", 0) >= SCORE_STRONG]
     maybe = [j for j in all_scored if SCORE_MAYBE <= j.get("score", 0) < SCORE_STRONG]
 
@@ -99,10 +94,10 @@ def get_jobs() -> tuple[list[dict], list[dict]]:
     return strong, maybe
 
 
-def run() -> None:
-    _logger.info("Agent CLI run started")
+def run(user_id: str) -> None:
+    _logger.info("Agent CLI run started for user %s", user_id)
     
-    strong, maybe = get_jobs()
+    strong, maybe = get_jobs(user_id)
     
     # Output Results
     print(f"{'='*55}")

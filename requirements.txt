@@ -14,3 +14,10 @@ fastapi
 uvicorn
 celery
 redis
+# Cloud / multi-tenant dependencies
+psycopg2-binary
+PyJWT[crypto]
+cryptography
+httpx
+instructor
+python-multipart

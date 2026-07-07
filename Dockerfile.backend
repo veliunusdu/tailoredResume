@@ -25,7 +25,7 @@ COPY . .
 RUN mkdir -p /app/data
 
 # Expose the API port
-EXPOSE 8000
+EXPOSE 8001
 
 # Start the API by default
 CMD ["python", "main.py", "api"]

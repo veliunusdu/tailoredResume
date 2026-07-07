@@ -5,6 +5,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ── Database ──────────────────────────────────────────────────────────────────
+DATABASE_URL    = os.getenv("DATABASE_URL", "")
+
+# ── Authentication (Clerk) ────────────────────────────────────────────────────
+CLERK_JWKS_URL  = os.getenv("CLERK_JWKS_URL", "")
+CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY", "")
+
+# ── Storage (Supabase) ────────────────────────────────────────────────────────
+SUPABASE_URL        = os.getenv("SUPABASE_URL", "")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+
+# ── Proxy (optional — for scraper rotation) ───────────────────────────────────
+PROXY_URL       = os.getenv("PROXY_URL", "")
+
 # ── API ───────────────────────────────────────────────────────────────────────
 GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
@@ -16,6 +30,8 @@ DATA_DIR         = BASE_DIR / "data"
 CONFIG_DIR       = BASE_DIR / "config"
 LOG_FILE         = DATA_DIR / "agent.log"
 
+# searches.yaml is no longer the primary config source (superseded by
+# user_search_config DB table). Kept only for local dev fallback.
 SEARCHES_YAML    = CONFIG_DIR / "searches.yaml"
 SITES_YAML       = CONFIG_DIR / "sites.yaml"
 

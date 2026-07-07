@@ -31,6 +31,7 @@ if not GEMINI_API_KEY:
 
 os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
 os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY # Fallback for some litellm versions
+os.environ["DEEPSEEK_API_KEY"] = GEMINI_API_KEY
 
 _rate_limiter = RateLimiter(LLM_MIN_INTERVAL_SEC)
 

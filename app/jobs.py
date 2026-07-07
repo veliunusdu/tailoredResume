@@ -19,8 +19,8 @@ from app.config import (
     JOBSPY_LOCATION,
     JOBSPY_LIMIT,
     JOB_LIMIT,
-    load_searches,
 )
+from app.search_config import build_searches_for_user
 from app.logger import get_logger
 from app.utils import retry
 
@@ -102,12 +102,12 @@ def _process_single_search(search: dict, blocked_sites: list[str]) -> list[dict]
         
     return search_results
 
-def fetch_jobs() -> list[dict]:
+def fetch_jobs(user_id: str) -> list[dict]:
     """Fetch raw job listings from all configured sources in parallel with progress bar."""
     from app.config import load_sites
     
     all_jobs = []
-    searches = load_searches()
+    searches = build_searches_for_user(user_id)
     
     if not searches:
         searches = [{

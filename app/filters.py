@@ -43,13 +43,19 @@ def _normalize(raw: dict) -> dict:
         }
 
 
-def filter_jobs(jobs: list[dict]) -> list[dict]:
+from app.search_config import get_search_config
+
+def filter_jobs(jobs: list[dict], user_id: str) -> list[dict]:
     """
     Apply rule-based filtering + field normalization.
     No AI involved — pure keyword matching.
     """
     if not isinstance(jobs, list):
         return []
+
+    cfg = get_search_config(user_id)
+    blocklist = [t.lower() for t in cfg.get("exclude_titles", [])]
+    queries = [q["query"].lower() for q in cfg.get("queries", [])]
 
     filtered = []
     for job in jobs:
@@ -58,7 +64,7 @@ def filter_jobs(jobs: list[dict]) -> list[dict]:
 
         title = str(job.get("title") or "").lower()
 
-        if any(word in title for word in BLOCKLIST):
+        if blocklist and any(word in title for word in blocklist):
             continue
 
         tags_list = job.get("tags") or []
