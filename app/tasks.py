@@ -83,6 +83,6 @@ def apply_to_job_task(job_id: str, attempt_id: str, dry_run: bool, user_id: str)
         return False
 
     _logger.info(f"Applying to job {job_id} (Attempt: {attempt_id}, Dry Run: {dry_run}, user={user_id})")
-    apply_to_job(job, dry_run=dry_run, attempt_id=attempt_id)
+    apply_to_job(user_id, job, dry_run=dry_run, attempt_id=attempt_id)
     return True
 

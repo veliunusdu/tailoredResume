@@ -13,21 +13,11 @@ export interface Job {
   reason: string;
 }
 
-export interface DiscoveryStats {
-  raw_scraped_count: number;
-  filtered_count: number;
-  scored_count: number;
-  strong_count: number;
-  maybe_count: number;
-  timestamp: number;
-}
-
 export interface Stats {
   total: number;
   strong: number;
   maybe: number;
   avg_score: number;
-  last_discovery?: DiscoveryStats | null;
 }
 
 export interface KeywordAnalysis {

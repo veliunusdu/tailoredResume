@@ -27,37 +27,53 @@ def test_normalize_missing_fields():
     assert normalized["date_posted"] == ""
     assert isinstance(normalized["tags"], list)
 
-def test_filter_jobs_allowlist():
+def test_filter_jobs_allowlist(mocker):
+    mocker.patch("app.filters.get_search_config", return_value={
+        "queries": [{"query": "python"}, {"query": "intern"}, {"query": "data"}],
+        "exclude_titles": []
+    })
     jobs = [
         {"title": "Python Developer", "tags": ["backend"]},
         {"title": "Intern", "tags": []},
         {"title": "Java Developer", "tags": ["data"]}
     ]
-    filtered = filter_jobs(jobs)
-    # Python Developer matches "python"
-    # Intern matches "intern"
-    # Java Developer matches "data"
+    filtered = filter_jobs(jobs, "mock-user")
     assert len(filtered) == 3
 
-def test_filter_jobs_blocklist():
+def test_filter_jobs_blocklist(mocker):
+    mocker.patch("app.filters.get_search_config", return_value={
+        "queries": [{"query": "python"}, {"query": "engineer"}],
+        "exclude_titles": ["senior", "lead"]
+    })
     jobs = [
         {"title": "Senior Python Developer", "tags": ["backend"]},
         {"title": "Lead Engineer", "tags": ["python"]},
         {"title": "Junior Python Developer", "tags": ["backend"]}
     ]
-    filtered = filter_jobs(jobs)
-    # Senior and Lead should be blocked
+    filtered = filter_jobs(jobs, "mock-user")
     assert len(filtered) == 1
     assert filtered[0]["title"] == "Junior Python Developer"
 
-def test_filter_jobs_case_insensitive():
+def test_filter_jobs_case_insensitive(mocker):
+    mocker.patch("app.filters.get_search_config", return_value={
+        "queries": [{"query": "python"}],
+        "exclude_titles": []
+    })
     jobs = [{"title": "PYTHON DEVELOPER", "tags": ["BACKEND"]}]
-    filtered = filter_jobs(jobs)
+    filtered = filter_jobs(jobs, "mock-user")
     assert len(filtered) == 1
 
-def test_filter_jobs_empty_input():
-    assert filter_jobs([]) == []
-    assert filter_jobs(None) == []
+def test_filter_jobs_empty_input(mocker):
+    mocker.patch("app.filters.get_search_config", return_value={
+        "queries": [],
+        "exclude_titles": []
+    })
+    assert filter_jobs([], "mock-user") == []
+    assert filter_jobs(None, "mock-user") == []
 
-def test_filter_jobs_malformed_input():
-    assert filter_jobs([None, {}, "string"]) == []
+def test_filter_jobs_malformed_input(mocker):
+    mocker.patch("app.filters.get_search_config", return_value={
+        "queries": [],
+        "exclude_titles": []
+    })
+    assert filter_jobs([None, {}, "string"], "mock-user") == []

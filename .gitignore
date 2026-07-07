@@ -31,7 +31,3 @@ web/out/
 .idea/
 *.swp
 *.swo
-
-# Local scratch and root node_modules
-node_modules/
-scratch/

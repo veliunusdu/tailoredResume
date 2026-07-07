@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { Job, KeywordAnalysis, InterviewQuestion } from "../types";
 
-export function JobCard({ job, index, sessionId }: { job: Job; index: number; sessionId?: string | null }) {
+export function JobCard({ job, index }: { job: Job; index: number }) {
   const [loadingTailor, setLoadingTailor] = useState(false);
   const [tailorMsg, setTailorMsg]         = useState<string | null>(null);
 
@@ -25,8 +25,6 @@ export function JobCard({ job, index, sessionId }: { job: Job; index: number; se
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-
   const getScoreStyle = (score: number) => {
     if (score >= 7) return { text: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
     if (score >= 4) return { text: "text-amber-500",  bg: "bg-amber-500/10",  border: "border-amber-500/20"  };
@@ -38,11 +36,7 @@ export function JobCard({ job, index, sessionId }: { job: Job; index: number; se
     setLoadingTailor(true);
     setTailorMsg(null);
     try {
-      const headers: HeadersInit = sessionId ? { "X-Session-ID": sessionId } : {};
-      const res = await fetch(`${apiUrl}/jobs/${job.id}/tailor`, { 
-        method: "POST",
-        headers
-      });
+      const res = await fetch(`http://localhost:8000/jobs/${job.id}/tailor`, { method: "POST" });
       setTailorMsg(res.ok ? "✅ AI is tailoring your resume in the background…" : "❌ Failed to start tailoring.");
     } catch (_) {
       setTailorMsg("❌ Network error.");
@@ -59,8 +53,7 @@ export function JobCard({ job, index, sessionId }: { job: Job; index: number; se
     setLoadingKeywords(true);
     setError(null);
     try {
-      const headers: HeadersInit = sessionId ? { "X-Session-ID": sessionId } : {};
-      const res = await fetch(`${apiUrl}/jobs/${job.id}/keywords`, { headers });
+      const res = await fetch(`http://localhost:8000/jobs/${job.id}/keywords`);
       if (res.ok) {
         const data = await res.json();
         if (data.found.length === 0 && data.missing.length === 0) {
@@ -88,8 +81,7 @@ export function JobCard({ job, index, sessionId }: { job: Job; index: number; se
     setLoadingQuestions(true);
     setError(null);
     try {
-      const headers: HeadersInit = sessionId ? { "X-Session-ID": sessionId } : {};
-      const res = await fetch(`${apiUrl}/jobs/${job.id}/interview-questions`, { headers });
+      const res = await fetch(`http://localhost:8000/jobs/${job.id}/interview-questions`);
       if (res.ok) {
         const data = await res.json();
         if (data.length === 0) {
