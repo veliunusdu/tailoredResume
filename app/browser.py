@@ -1,14 +1,6 @@
 """
 Browser automation dispatcher for autonomous job applications.
-
-Architecture:
-  apply_to_job(job, dry_run) 
-      → detect_platform(url)
-      → resolve LinkedIn → external ATS URL
-      → load saved session (cookies)
-      → get_strategy(platform)
-      → strategy.apply(page, payload, dry_run)
-      → update_apply_status(attempt_id, result)
+Now user-aware for multi-user session management and resume storage.
 """
 
 import time
@@ -34,7 +26,6 @@ _logger = get_logger(__name__)
 MAX_APPLICATIONS_PER_RUN = 10
 APPLIED_LOG = DATA_DIR / "applications_log.txt"
 
-# Realistic browser user agent to reduce bot detection
 STEALTH_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -70,26 +61,18 @@ def _is_valid_session(platform: str, state: dict) -> bool:
     """Return True only if the session contains the expected auth cookie."""
     required = _AUTH_COOKIES.get(platform)
     if not required:
-        return bool(state.get("cookies"))  # for unknown platforms, just check non-empty
+        return bool(state.get("cookies"))
     cookie_names = {c["name"] for c in state.get("cookies", [])}
     has_auth = required in cookie_names
     if not has_auth:
-        _logger.warning(
-            "⚠️  Session for %s exists but is missing auth cookie '%s'. "
-            "You need to re-record — run: curl -X DELETE http://localhost:8000/sessions/%s "
-            "then: curl -X POST http://localhost:8000/sessions/%s/record",
-            platform, required, platform, platform
-        )
+        _logger.warning("⚠️ Session for %s exists but is missing auth cookie.", platform)
     return has_auth
 
 
 # ── LinkedIn URL Resolver ─────────────────────────────────────────────────────
 
 def _resolve_linkedin_apply_url(page, job_url: str) -> str | None:
-    """
-    Navigate to a LinkedIn job listing and extract the external 'Apply on company website' URL.
-    Returns None if the job only has LinkedIn Easy Apply (requires login).
-    """
+    """Extract external apply URL from LinkedIn job listing."""
     _logger.info("   🔗 Looking for external apply link on LinkedIn...")
     try:
         page.goto(job_url, wait_until="domcontentloaded", timeout=20000)
@@ -102,55 +85,64 @@ def _resolve_linkedin_apply_url(page, job_url: str) -> str | None:
         if href and href.startswith("http") and "linkedin.com" not in href:
             return href
     except Exception as e:
-        _logger.warning("   ⚠️  LinkedIn resolve failed: %s", e)
+        _logger.warning("   ⚠️ LinkedIn resolve failed: %s", e)
     return None
 
 
 # ── Resume Resolver ───────────────────────────────────────────────────────────
 
-def _get_resume_path(job: dict) -> Path | None:
-    """Return the tailored resume for this job, falling back to the base resume."""
-    company = job.get("company", "Company")
+def _get_resume_path(user_id: str, job: dict) -> Path | None:
+    """Resolve the tailored or base resume path on the local disk."""
     job_id  = job.get("id", "unknown")
-    tailored = DATA_DIR / "applications" / f"{company.replace(' ', '_')}_{job_id[:6]}" / "tailored_resume.md"
-    if tailored.exists():
-        _logger.info("   📄 Using tailored resume: %s", tailored.name)
-        return tailored
-    base = DATA_DIR / "base_resume.md"
-    if base.exists():
-        _logger.info("   📄 Using base resume (no tailored version found).")
-        return base
-        
-    # Fallback to any markdown file in DATA_DIR (multi-profile fallback)
-    markdown_files = list(DATA_DIR.glob("*.md"))
-    if markdown_files:
-        _logger.info("   📄 Using alternative profile: %s", markdown_files[0].name)
-        return markdown_files[0]
-        
-    _logger.warning("   ⚠️  No resume found in %s!", DATA_DIR)
-    return None
+    
+    try:
+        # 1. Try tailored resume first
+        tailored_path = Path("data") / "sessions" / user_id / "tailored" / job_id / "resume.md"
+        if tailored_path.exists():
+            _logger.info("   📄 Using tailored resume from local storage.")
+            return tailored_path
+            
+        # 2. Fallback to base resume
+        base_path = Path("data") / "sessions" / user_id / "base_resume.md"
+        if base_path.exists():
+            _logger.info("   📄 Using base resume from local storage.")
+            return base_path
+            
+        # 3. Try global fallback in data/ base resume
+        fallback_path = Path("data") / "base_resume.md"
+        if fallback_path.exists():
+            _logger.info("   📄 Using global fallback base resume.")
+            return fallback_path
+            
+        _logger.error("   ⚠️ No base resumes found for user %s on local disk.", user_id)
+        return None
+            
+    except Exception as e:
+        _logger.error("   ⚠️ Resume resolution failed for user %s: %s", user_id, e)
+        return None
 
 
 # ── Main Apply Entry Point ────────────────────────────────────────────────────
 
-def apply_to_job(job: dict, dry_run: bool = True, attempt_id: str = None) -> bool:
+def apply_to_job(user_id: str, job: dict, dry_run: bool = True, attempt_id: str = None) -> bool:
     """
-    Orchestrates a single job application.
-    Returns True on success, False on failure.
+    Orchestrates a single job application for a specific user.
     """
     from app.db import update_apply_status
 
     if not sync_playwright:
-        _logger.error("❌ Playwright not installed. Run: playwright install chromium")
+        _logger.error("❌ Playwright not installed.")
         return False
 
     original_url = job.get("url")
     if not original_url:
-        _logger.warning("⚠️  No URL for job.")
+        _logger.warning("⚠️ No URL for job.")
         return False
 
-    # Import profile loading from sessions module
+    # Load user profile and secrets
     import yaml
+    from app.db import get_user_secret, list_user_secrets
+    
     profile_path = DATA_DIR / "profile.yaml"
     profile = {}
     if profile_path.exists():
@@ -160,32 +152,63 @@ def apply_to_job(job: dict, dry_run: bool = True, attempt_id: str = None) -> boo
             profile.update(data.get("links", {}))
             profile.update(data.get("preferences", {}))
             profile["custom_responses"] = data.get("custom_responses", {})
+    
+    # Inject decrypted secrets
+    profile["secrets"] = {}
+    secret_keys = list_user_secrets(user_id)
+    for sk in secret_keys:
+        profile["secrets"][sk] = get_user_secret(user_id, sk)
 
-    resume_path = _get_resume_path(job)
+    resume_path = _get_resume_path(user_id, job)
+    if not resume_path:
+        _logger.error("❌ Cannot apply without a resume.")
+        if attempt_id:
+            update_apply_status(user_id, attempt_id, "failed", error_msg="Resume not found in Supabase Storage.")
+        return False
+        
     debug_dir   = DATA_DIR / "debug"
     debug_dir.mkdir(exist_ok=True)
     job_id_short = job.get("id", "unknown")[:8]
 
     _logger.info("━" * 60)
-    _logger.info("🤖 JOB APPLICATION STARTED")
+    _logger.info("🤖 JOB APPLICATION STARTED (USER: %s)", user_id)
     _logger.info("   Title   : %s", job.get("title"))
     _logger.info("   Company : %s", job.get("company"))
-    _logger.info("   Score   : %s/10", job.get("score"))
-    _logger.info("   Mode    : %s", "🔵 DRY RUN (no submit)" if dry_run else "🔴 LIVE — WILL SUBMIT!")
+    _logger.info("   Mode    : %s", "🔵 DRY RUN" if dry_run else "🔴 LIVE — WILL SUBMIT!")
     _logger.info("━" * 60)
 
     with sync_playwright() as p:
         _logger.info("🌐 Launching browser...")
-        context = p.chromium.launch_persistent_context(
-            user_data_dir=str(DATA_DIR / "browser_profile"),
-            headless=False,
-            user_agent=STEALTH_UA,
-            viewport={"width": 1280, "height": 800},
-            args=["--disable-blink-features=AutomationControlled"],
-        )
-        page = context.new_page()
+        from app.config import BROWSERLESS_URL, PLAYWRIGHT_PROXY_URL
+        
+        proxy_config = None
+        if PLAYWRIGHT_PROXY_URL:
+            proxy_config = {"server": PLAYWRIGHT_PROXY_URL}
+            _logger.info("   📡 Using proxy: %s", PLAYWRIGHT_PROXY_URL)
 
-        # Hide webdriver flag for basic anti-bot evasion
+        if BROWSERLESS_URL:
+            _logger.info("   ☁️  Connecting to Browserless.io...")
+            # Browserless uses connect_over_cdp
+            browser = p.chromium.connect_over_cdp(BROWSERLESS_URL)
+            context = browser.new_context(
+                user_agent=STEALTH_UA,
+                viewport={"width": 1280, "height": 800},
+                proxy=proxy_config
+            )
+        else:
+            user_profile_dir = DATA_DIR / "browser_profiles" / user_id
+            user_profile_dir.mkdir(parents=True, exist_ok=True)
+            
+            context = p.chromium.launch_persistent_context(
+                user_data_dir=str(user_profile_dir),
+                headless=False,
+                user_agent=STEALTH_UA,
+                viewport={"width": 1280, "height": 800},
+                proxy=proxy_config,
+                args=["--disable-blink-features=AutomationControlled"],
+            )
+
+        page = context.new_page()
         page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
         try:
@@ -194,56 +217,45 @@ def apply_to_job(job: dict, dry_run: bool = True, attempt_id: str = None) -> boo
 
             _logger.info("🔍 Platform detected: %s", platform.upper())
 
-            # ── LinkedIn: try external ATS first, then Easy Apply ──
+            # ── LinkedIn Handling ──
             if platform == "linkedin":
-                session_state = load_session("linkedin")
+                session_state = load_session(user_id, "linkedin")
                 valid_session = session_state and _is_valid_session("linkedin", session_state)
 
                 if valid_session:
-                    _logger.info("🔑 LinkedIn session valid (%d cookies) — loading...", len(session_state.get("cookies", [])))
+                    _logger.info("🔑 LinkedIn session valid — loading from Supabase...")
                     context.add_cookies(session_state.get("cookies", []))
                 else:
                     _logger.info("   No valid LinkedIn session — checking for external apply link...")
 
-                # First: check for an external "Apply on company website" link
                 resolved = _resolve_linkedin_apply_url(page, original_url)
                 if resolved:
                     apply_url = resolved
                     platform  = detect_platform(apply_url)
                     _logger.info("✅ External ATS found: %s (%s)", apply_url, platform.upper())
-
                 elif valid_session:
-                    _logger.info("🔵 No external link — attempting LinkedIn Easy Apply with saved session...")
+                    _logger.info("🔵 No external link — attempting LinkedIn Easy Apply...")
                     platform = "linkedin_easyapply"
                     apply_url = original_url
-
                 else:
-                    msg = (
-                        "No external apply link found, and no valid LinkedIn session.\n"
-                        "   → Run in a new terminal:\n"
-                        "       curl -X POST http://localhost:8000/sessions/linkedin/record\n"
-                        "   → Log in to LinkedIn in the browser that opens, then close it."
-                    )
-                    _logger.warning("⚠️  %s", msg)
+                    msg = "No external apply link found, and no valid LinkedIn session."
+                    _logger.warning("⚠️ %s", msg)
                     if attempt_id:
-                        update_apply_status(attempt_id, "manual_required", "linkedin", error_msg=msg)
+                        update_apply_status(user_id, attempt_id, "manual_required", "linkedin", error_msg=msg)
                     return False
 
-            # ── Load saved session for this platform if available ──
+            # ── Load saved session for other platforms ──
             elif platform not in ("greenhouse", "lever", "ashby"):
-                session_state = load_session(platform)
+                session_state = load_session(user_id, platform)
                 if session_state:
                     context.add_cookies(session_state.get("cookies", []))
-                    _logger.info("🔑 Loaded %s session.", platform)
+                    _logger.info("🔑 Loaded %s session from Supabase.", platform)
 
-            # ── Update DB: running ──
             if attempt_id:
-                update_apply_status(attempt_id, "running", job_board=platform)
+                update_apply_status(user_id, attempt_id, "running", job_board=platform)
 
-            # ── Navigate + screenshot before ──
             _logger.info("🌍 Navigating to: %s", apply_url)
 
-            # ── Build payload ──
             payload = ApplyPayload(
                 job_id      = job.get("id", ""),
                 job_url     = original_url,
@@ -253,71 +265,49 @@ def apply_to_job(job: dict, dry_run: bool = True, attempt_id: str = None) -> boo
                 resume_path = resume_path,
             )
 
-            # ── Run strategy ──
             strategy = get_strategy(platform)
             _logger.info("📝 Running %s strategy...", platform.upper())
 
             result: ApplyResult = strategy.apply(page, payload, dry_run=dry_run)
 
-            # ── Screenshot after ──
             screenshot_path = str(debug_dir / f"{job_id_short}_result.png")
             try:
                 page.screenshot(path=screenshot_path)
-                _logger.info("📸 Screenshot: %s", screenshot_path)
             except Exception:
                 screenshot_path = None
 
-            # ── Log result ──
             if result.success:
                 _logger.info("✅ Application complete! (status=%s)", result.status)
-                with open(APPLIED_LOG, "a", encoding="utf-8") as f:
-                    mode = "DRY RUN" if dry_run else "APPLIED"
-                    f.write(
-                        f"{mode} | {time.strftime('%Y-%m-%d %H:%M:%S')} | "
-                        f"{job.get('company')} | {job.get('title')} | {apply_url}\n"
-                    )
                 if attempt_id:
-                    update_apply_status(attempt_id, result.status, platform, screenshot=screenshot_path)
+                    update_apply_status(user_id, attempt_id, result.status, platform, screenshot=screenshot_path)
             else:
                 _logger.error("❌ Application failed: %s", result.error_msg)
                 if attempt_id:
-                    update_apply_status(attempt_id, "failed", platform,
+                    update_apply_status(user_id, attempt_id, "failed", platform,
                                         error_msg=result.error_msg, screenshot=screenshot_path)
 
-            _logger.info("━" * 60)
             return result.success
 
         except Exception as e:
             error_message = str(e)
             _logger.error("💥 Unexpected error: %s", error_message)
             
-            # Resilience: Capture DOM and diagnose UI changes
+            # Resilience Background Thread
+            import threading
+            def _background_diagnosis(uid, aid, err_msg, plat, captured_dom):
+                suggestion = generate_selector_patch(err_msg, captured_dom)
+                if aid:
+                    from app.db import update_apply_status
+                    update_apply_status(uid, aid, "failed", job_board=plat, error_msg=err_msg, ai_patch_suggestion=suggestion)
+                send_webhook_alert(job.get("title", "Unknown"), plat or "generic", err_msg, suggestion)
+            
             try:
-                # Capture current page content before closing context
                 raw_html = page.content()
                 minified = minify_dom(raw_html)
-                
-                import threading
-                # Offload AI analysis and webhook to a background thread
-                def _background_diagnosis(err_msg, plat, captured_dom):
-                    suggestion = generate_selector_patch(err_msg, captured_dom)
-                    if attempt_id:
-                        from app.db import update_apply_status
-                        # Pass all required args correctly to update_apply_status
-                        update_apply_status(
-                            attempt_id, 
-                            "failed", 
-                            job_board=plat, 
-                            error_msg=err_msg, 
-                            ai_patch_suggestion=suggestion
-                        )
-                    send_webhook_alert(job.get("title", "Unknown"), plat or "generic", err_msg, suggestion)
-                
                 current_platform = platform if 'platform' in locals() else None
-                threading.Thread(target=_background_diagnosis, args=(error_message, current_platform, minified), daemon=True).start()
-                _logger.info("🤖 AI Resilience diagnosis started in background.")
-            except Exception as re:
-                _logger.warning("⚠️ Failed to capture DOM for resilience: %s", re)
+                threading.Thread(target=_background_diagnosis, args=(user_id, attempt_id, error_message, current_platform, minified), daemon=True).start()
+            except Exception:
+                pass
 
             screenshot_path = None
             try:
@@ -327,9 +317,19 @@ def apply_to_job(job: dict, dry_run: bool = True, attempt_id: str = None) -> boo
             except Exception:
                 pass
             if attempt_id:
-                update_apply_status(attempt_id, "failed", error_msg=error_message, screenshot=screenshot_path)
+                update_apply_status(user_id, attempt_id, "failed", error_msg=error_message, screenshot=screenshot_path)
             return False
 
         finally:
             context.close()
+            # If we connected to browserless, we might need to close the browser object too
+            if BROWSERLESS_URL and 'browser' in locals():
+                browser.close()
             _logger.info("🔒 Browser closed.")
+            
+            # Cleanup temp resume
+            try:
+                if resume_path and resume_path.exists():
+                    resume_path.unlink()
+            except Exception:
+                pass

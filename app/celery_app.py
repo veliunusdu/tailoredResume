@@ -7,6 +7,8 @@ load_dotenv()
 # Use "redis://redis:6379/0" if running in Docker, "redis://localhost:6379/0" if local
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
+USE_CELERY = os.getenv("USE_CELERY", "false").lower() == "true"
+
 app = Celery(
     "tailoredresume",
     broker=REDIS_URL,
@@ -20,10 +22,15 @@ app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
-    # Allow Playwright to run in threads if needed, though Celery worker is better
     worker_prefetch_multiplier=1,
     task_acks_late=True,
 )
+
+if not USE_CELERY:
+    app.conf.update(
+        task_always_eager=True,
+        task_eager_propagates=True,
+    )
 
 if __name__ == "__main__":
     app.start()

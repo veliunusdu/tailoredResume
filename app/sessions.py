@@ -1,22 +1,12 @@
 """
 Session management for browser automation.
-
-Playwright's storage_state saves cookies + localStorage to JSON.
-This lets the bot skip login walls after the user logs in once manually.
-
-Usage:
-  1. POST /sessions/{platform}/record  → opens browser, user logs in, saves state
-  2. load_session("linkedin")          → returns the saved state dict for re-use
+Now using Supabase to store sessions per user.
 """
 
 import json
-from pathlib import Path
-from app.config import DATA_DIR
 from app.logger import get_logger
 
 _logger = get_logger(__name__)
-
-SESSION_DIR = DATA_DIR / "sessions"
 
 PLATFORM_LOGIN_URLS = {
     "linkedin":  "https://www.linkedin.com/login",
@@ -26,56 +16,76 @@ PLATFORM_LOGIN_URLS = {
 }
 
 
-def _session_path(platform: str) -> Path:
-    SESSION_DIR.mkdir(parents=True, exist_ok=True)
-    return SESSION_DIR / f"{platform}.json"
-
-
-def session_exists(platform: str) -> bool:
-    """Check whether a saved session exists for the platform."""
-    return _session_path(platform).exists()
-
-
-def save_session(platform: str, state: dict) -> None:
-    """Persist a Playwright storage_state dict to disk."""
-    path = _session_path(platform)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(state, f, indent=2)
-    _logger.info("✅ Session saved for %s → %s", platform, path)
-
-
-def load_session(platform: str) -> dict | None:
-    """Load a saved Playwright storage_state dict from disk. Returns None if missing."""
-    path = _session_path(platform)
-    if not path.exists():
-        _logger.warning("⚠️  No saved session for %s. Some sites may require login.", platform)
-        return None
+def session_exists(user_id: str, platform: str) -> bool:
+    """Check whether a saved session exists for the user and platform."""
+    from app.db import get_connection
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            state = json.load(f)
-        _logger.info("🔑 Loaded session for %s (%d cookies)", platform, len(state.get("cookies", [])))
-        return state
+        with get_connection() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM user_sessions WHERE user_id = ? AND platform = ?",
+                (user_id, platform)
+            ).fetchone()
+            return row is not None
     except Exception as e:
-        _logger.error("Failed to load session for %s: %s", platform, e)
+        _logger.error(f"Error checking session existence: {e}")
+        return False
+
+
+def save_session(user_id: str, platform: str, state: dict) -> None:
+    """Persist a Playwright storage_state dict to local SQLite."""
+    from app.db import get_connection
+    cookies_json = json.dumps(state)
+    try:
+        with get_connection() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO user_sessions (user_id, platform, cookies) VALUES (?, ?, ?)",
+                (user_id, platform, cookies_json)
+            )
+            conn.commit()
+        _logger.info("✅ Session saved locally for user %s, platform %s", user_id, platform)
+    except Exception as e:
+        _logger.error(f"Failed to save session locally: {e}")
+
+
+def load_session(user_id: str, platform: str) -> dict | None:
+    """Load a saved Playwright storage_state dict from SQLite. Returns None if missing."""
+    from app.db import get_connection
+    try:
+        with get_connection() as conn:
+            row = conn.execute(
+                "SELECT cookies FROM user_sessions WHERE user_id = ? AND platform = ?",
+                (user_id, platform)
+            ).fetchone()
+            if row and row["cookies"]:
+                state = json.loads(row["cookies"])
+                _logger.info("🔑 Loaded local session for %s (%d cookies)", platform, len(state.get("cookies", [])))
+                return state
+        return None
+    except Exception as e:
+        _logger.error(f"Failed to load session locally: {e}")
         return None
 
 
-def delete_session(platform: str) -> bool:
-    """Delete a saved session (e.g. when it has expired)."""
-    path = _session_path(platform)
-    if path.exists():
-        path.unlink()
-        _logger.info("🗑️  Deleted session for %s", platform)
-        return True
-    return False
+def delete_session(user_id: str, platform: str) -> bool:
+    """Delete a saved session from SQLite."""
+    from app.db import get_connection
+    try:
+        with get_connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM user_sessions WHERE user_id = ? AND platform = ?",
+                (user_id, platform)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        _logger.error(f"Failed to delete session: {e}")
+        return False
 
 
-def record_session(platform: str, timeout_seconds: int = 300) -> dict:
+def record_session(user_id: str, platform: str, timeout_seconds: int = 300) -> dict:
     """
     Open a visible browser, navigate to the login page, and poll every 2 seconds
-    for the platform's auth cookie. Saves the session as soon as login is detected.
-
-    Returns: { "status": "saved" | "timeout" | "error" }
+    for the platform's auth cookie. Saves the session to Supabase as soon as login is detected.
     """
     try:
         from playwright.sync_api import sync_playwright
@@ -86,7 +96,6 @@ def record_session(platform: str, timeout_seconds: int = 300) -> dict:
     if not login_url:
         return {"status": "error", "message": f"Unknown platform: {platform}"}
 
-    # The specific cookie that confirms a real logged-in session
     auth_cookie_map = {
         "linkedin":  "li_at",
         "indeed":    "INDEED_CSRF_TOKEN",
@@ -95,10 +104,7 @@ def record_session(platform: str, timeout_seconds: int = 300) -> dict:
     auth_cookie = auth_cookie_map.get(platform)
 
     _logger.info("━" * 60)
-    _logger.info("🔑 SESSION RECORDING: %s", platform.upper())
-    _logger.info("   ➡️  A browser will open at: %s", login_url)
-    _logger.info("   ➡️  Log in normally. The session saves AUTOMATICALLY once detected.")
-    _logger.info("   ⏰  Timeout: %d seconds", timeout_seconds)
+    _logger.info("🔑 SESSION RECORDING (USER: %s): %s", user_id, platform.upper())
     _logger.info("━" * 60)
 
     import time
@@ -121,7 +127,6 @@ def record_session(platform: str, timeout_seconds: int = 300) -> dict:
                     "Chrome/124.0.0.0 Safari/537.36"
                 ),
             )
-            # Hide webdriver flag
             context.add_init_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
             )
@@ -130,7 +135,6 @@ def record_session(platform: str, timeout_seconds: int = 300) -> dict:
             page.goto(login_url, wait_until="domcontentloaded", timeout=15000)
             _logger.info("🌐 Browser opened. Log in to %s, then wait — session saves automatically.", platform)
 
-            # Poll every 2 seconds for the auth cookie
             deadline = time.time() + timeout_seconds
             found = False
             while time.time() < deadline:
@@ -143,7 +147,6 @@ def record_session(platform: str, timeout_seconds: int = 300) -> dict:
                             found = True
                             break
                     else:
-                        # For platforms without a known auth cookie, wait 10s then save
                         time.sleep(10)
                         found = True
                         break
@@ -154,14 +157,13 @@ def record_session(platform: str, timeout_seconds: int = 300) -> dict:
             if not found:
                 _logger.warning("⏰ Timeout (%ds) reached without detecting login.", timeout_seconds)
 
-            # Capture storage state while context is still open
             state = context.storage_state()
             cookie_count = len(state.get("cookies", []))
             _logger.info("💾 Captured %d cookies.", cookie_count)
 
             browser.close()
 
-        save_session(platform, state)
+        save_session(user_id, platform, state)
 
         if not found or cookie_count == 0:
             return {
@@ -177,5 +179,3 @@ def record_session(platform: str, timeout_seconds: int = 300) -> dict:
     except Exception as e:
         _logger.error("Session recording failed: %s", e)
         return {"status": "error", "message": str(e)}
-
-
