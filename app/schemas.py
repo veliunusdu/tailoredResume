@@ -40,11 +40,20 @@ class Job(JobBase):
     class Config:
         from_attributes = True
 
+class DiscoveryStats(BaseModel):
+    raw_scraped_count: int
+    filtered_count: int
+    scored_count: int
+    strong_count: int
+    maybe_count: int
+    timestamp: int
+
 class Stats(BaseModel):
     total: int
     strong: int
     maybe: int
     avg_score: float
+    last_discovery: Optional[DiscoveryStats] = None
 
 class ApplyResponse(BaseModel):
     status: str
@@ -77,3 +86,10 @@ class SessionResponse(BaseModel):
     status: str
     platform: str
     message: Optional[str] = None
+
+class SecretPayload(BaseModel):
+    secret_type: str
+    value: str
+
+class SecretListResponse(BaseModel):
+    keys: List[str]
