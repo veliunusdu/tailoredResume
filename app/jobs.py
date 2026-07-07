@@ -1,7 +1,4 @@
 import requests
-import re
-import json
-from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
@@ -21,11 +18,11 @@ from app.config import (
     JOBSPY_SITES,
     JOBSPY_LOCATION,
     JOBSPY_LIMIT,
-    load_searches,
+    JOB_LIMIT,
 )
+from app.search_config import build_searches_for_user
 from app.logger import get_logger
 from app.utils import retry
-from app.db import get_user_settings
 
 _logger = get_logger(__name__)
 
@@ -81,123 +78,6 @@ def _fetch_jobs_jobspy(search_term: str, location: str, sites: list[str], limit:
         _logger.error("JobSpy fetch failed for %s: %s", search_term, e)
         return []
 
-def _fetch_jobs_kariyer(search_term: str, location: str, limit: int) -> list[dict]:
-    """Custom scraper for Kariyer.net."""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    
-    results = []
-    page = 1
-    
-    try:
-        while len(results) < limit and page <= 3:
-            url = f"https://www.kariyer.net/is-ilanlari?kw={search_term}&cp={page}"
-            response = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT_SEC)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.text, "html.parser")
-            scripts = soup.find_all("script")
-            
-            nuxt_data = None
-            for script in scripts:
-                if script.string and "window.__NUXT__" in script.string:
-                    match = re.search(r"window\.__NUXT__\s*=\s*(\{.*?\});", script.string, re.DOTALL)
-                    if match:
-                        try:
-                            json_str = match.group(1)
-                            nuxt_data = json.loads(json_str)
-                            break
-                        except json.JSONDecodeError:
-                            pass
-
-            if not nuxt_data:
-                break
-
-            def find_ads(obj):
-                if isinstance(obj, dict):
-                    if "advertisement" in obj and isinstance(obj["advertisement"], dict) and "list" in obj["advertisement"]:
-                        return obj["advertisement"]["list"]
-                    for v in obj.values():
-                        res = find_ads(v)
-                        if res: return res
-                return None
-
-            ads = find_ads(nuxt_data)
-            if not ads:
-                break
-
-            for ad in ads:
-                job_url = f"https://www.kariyer.net{ad.get('url')}" if ad.get('url') else ""
-                results.append({
-                    "title": ad.get("title", "Unknown Title"),
-                    "company": ad.get("subTitle", "Unknown Company"),
-                    "location": ad.get("location", "Turkey"),
-                    "url": job_url,
-                    "date_posted": ad.get("adDate", ""),
-                    "site": "kariyer.net",
-                    "source_type": "kariyer",
-                    "description": f"Position at {ad.get('subTitle')}. Location: {ad.get('location')}"
-                })
-                if len(results) >= limit:
-                    break
-            
-            page += 1
-            
-        return results
-    except Exception as e:
-        _logger.error("Kariyer.net fetch failed: %s", e)
-        return results
-
-def _fetch_jobs_techcareer(search_term: str, location: str, limit: int) -> list[dict]:
-    """Custom scraper for Techcareer.net."""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
-    
-    results = []
-    page = 1
-    
-    try:
-        while len(results) < limit and page <= 3:
-            url = f"https://www.techcareer.net/jobs?filter={search_term}&page={page}"
-            response = requests.get(url, headers=headers, timeout=HTTP_TIMEOUT_SEC)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.text, "html.parser")
-            next_data_script = soup.find("script", id="__NEXT_DATA__")
-            
-            if not next_data_script:
-                break
-                
-            data = json.loads(next_data_script.string)
-            job_list = data.get("props", {}).get("pageProps", {}).get("initialJobList", {}).get("jobListItems", [])
-            
-            if not job_list:
-                break
-                
-            for job in job_list:
-                job_url = f"https://www.techcareer.net/jobs/{job.get('slug')}" if job.get('slug') else ""
-                results.append({
-                    "title": job.get("title", "Unknown Title"),
-                    "company": job.get("owner", {}).get("name", "Unknown Company"),
-                    "location": job.get("location", "Turkey"),
-                    "url": job_url,
-                    "date_posted": "", 
-                    "site": "techcareer.net",
-                    "source_type": "techcareer",
-                    "description": f"Position at {job.get('owner', {}).get('name')}. Workplaces: {', '.join(job.get('workPlaces', []))}"
-                })
-                if len(results) >= limit:
-                    break
-                    
-            page += 1
-            
-        return results
-    except Exception as e:
-        _logger.error("Techcareer.net fetch failed: %s", e)
-        return results
-
 def _process_single_search(search: dict, blocked_sites: list[str]) -> list[dict]:
     """Helper for parallel search execution."""
     search_results = []
@@ -214,57 +94,22 @@ def _process_single_search(search: dict, blocked_sites: list[str]) -> list[dict]
             search_results.extend(r_jobs)
         except Exception:
             pass
-    
-    if "kariyer" in platforms:
-        try:
-            k_jobs = _fetch_jobs_kariyer(term, location, limit)
-            search_results.extend(k_jobs)
-        except Exception as e:
-            _logger.error("Kariyer search failed: %s", e)
-
-    if "techcareer" in platforms:
-        try:
-            t_jobs = _fetch_jobs_techcareer(term, location, limit)
-            search_results.extend(t_jobs)
-        except Exception as e:
-            _logger.error("Techcareer search failed: %s", e)
             
-    jobspy_sites = [p for p in platforms if p not in ("remotive", "kariyer", "techcareer")]
+    jobspy_sites = [p for p in platforms if p != "remotive"]
     if jobspy_sites:
         j_jobs = _fetch_jobs_jobspy(term, location, jobspy_sites, limit)
         search_results.extend(j_jobs)
         
     return search_results
 
-def fetch_jobs(user_id: str, region: str = None) -> list[dict]:
-    """Fetch raw job listings for a user from configured sources."""
+def fetch_jobs(user_id: str) -> list[dict]:
+    """Fetch raw job listings from all configured sources in parallel with progress bar."""
     from app.config import load_sites
     
     all_jobs = []
+    searches = build_searches_for_user(user_id)
     
-    # Try loading from user settings first
-    settings = get_user_settings(user_id)
-    target_roles = settings.get("target_roles", [])
-    locations = settings.get("locations", [])
-    
-    if target_roles:
-        # Generate combinations of roles and locations
-        searches = []
-        locs = locations if locations else ["Remote"]
-        for role in target_roles:
-            for loc in locs:
-                searches.append({
-                    "term": role,
-                    "location": loc,
-                    "limit": JOBSPY_LIMIT,
-                    "platforms": JOBSPY_SITES + ["remotive"]
-                })
-    else:
-        # Fallback to local config file if region provided
-        searches = load_searches(region=region)
-        
     if not searches:
-        # Global fallback
         searches = [{
             "term": JOBSPY_SEARCH_TERM,
             "location": JOBSPY_LOCATION,
@@ -275,11 +120,12 @@ def fetch_jobs(user_id: str, region: str = None) -> list[dict]:
     sites_config = load_sites()
     blocked_sites = sites_config.get("blocked", {}).get("sites", [])
     
-    _logger.info("Initializing search for %s combinations (User: %s)...", len(searches), user_id)
+    _logger.info("Initializing search for %s combinations...", len(searches))
     
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {executor.submit(_process_single_search, s, blocked_sites): s for s in searches}
         
+        # tqdm progress bar for search combinations
         with tqdm(total=len(searches), desc="Searching Jobs", unit="comb") as pbar:
             for future in as_completed(futures):
                 try:

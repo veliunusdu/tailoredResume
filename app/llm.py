@@ -27,12 +27,11 @@ _logger = get_logger(__name__)
 
 # Ensure API key is in environment for litellm
 if not GEMINI_API_KEY:
-    _logger.warning("No LLM API key detected (GEMINI_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY). Check your .env file.")
+    _logger.error("GEMINI_API_KEY is not set! Check your .env file.")
 
 os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
+os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY # Fallback for some litellm versions
 os.environ["DEEPSEEK_API_KEY"] = GEMINI_API_KEY
-os.environ["OPENAI_API_KEY"] = GEMINI_API_KEY
-os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
 
 _rate_limiter = RateLimiter(LLM_MIN_INTERVAL_SEC)
 
@@ -40,17 +39,13 @@ _rate_limiter = RateLimiter(LLM_MIN_INTERVAL_SEC)
 
 class SingleJobEvaluation(BaseModel):
     verdict: str = Field(description="'yes', 'maybe', or 'no'")
-    technical_fit_score: int = Field(description="Integer 0-10 based on technical match.")
-    experience_fit_score: int = Field(description="Integer 0-10 based on required experience level.")
-    overall_score: int = Field(description="Integer 0-10 weighted combination. 8-10 = strong match, 4-7 = possible, 0-3 = not suitable")
+    score: int = Field(description="Integer 0-10. 8-10 = strong match, 4-7 = possible, 0-3 = not suitable")
     reason: str = Field(description="One sentence explanation")
 
 class BatchJobEvaluationItem(BaseModel):
     id: str = Field(description="The job ID from the prompt")
     verdict: str = Field(description="'yes', 'maybe', or 'no'")
-    technical_fit_score: int = Field(description="Integer 0-10 based on technical match.")
-    experience_fit_score: int = Field(description="Integer 0-10 based on required experience level.")
-    overall_score: int = Field(description="Integer 0-10 weighted combination.")
+    score: int = Field(description="Integer 0-10")
     reason: str = Field(description="One sentence explanation")
 
 class BatchJobEvaluations(BaseModel):
@@ -68,31 +63,26 @@ class InterviewQuestion(BaseModel):
 class InterviewQuestionsList(BaseModel):
     questions: List[InterviewQuestion]
 
-def get_system_prompt(user_profile: dict = None) -> str:
-    if not user_profile:
-        return """
-You are a job fit evaluator for a candidate with the following profile:
+_SYSTEM_PROMPT_SINGLE = """
+You are a job fit evaluator for a university student with the following profile:
+
 - Level: beginner / entry-level, currently learning
 - Stack: Python, some experience with Flask and basic ML concepts
-- Looking for: internships, junior roles, entry-level positions
+- Looking for: internships, junior roles, entry-level positions in backend, data, or AI/ML
 - Location: open to fully remote worldwide
-- Dealbreakers: senior/lead/principal roles
+- Dealbreakers: requires 3+ years experience, requires degree already completed,
+  senior/lead/principal roles, test/sample/fake postings
 """.strip()
-    
-    level = user_profile.get("experience_level", "Not specified")
-    skills = ", ".join(user_profile.get("skills", [])) or "Not specified"
-    roles = ", ".join(user_profile.get("target_roles", [])) or "Not specified"
-    locations = ", ".join(user_profile.get("locations", [])) or "Not specified"
-    
-    return f"""
-You are a job fit evaluator for a candidate with the following profile:
 
-- Level: {level}
-- Stack: {skills}
-- Looking for: {roles}
-- Location: {locations}
+_SYSTEM_PROMPT_BATCH = """
+You are a job fit evaluator for a university student with the following profile:
 
-Assess the technical fit and experience fit separately.
+- Level: beginner / entry-level, currently learning
+- Stack: Python, some experience with Flask and basic ML concepts
+- Looking for: internships, junior roles, entry-level positions in backend, data, or AI/ML
+- Location: open to fully remote worldwide
+- Dealbreakers: requires 3+ years experience, requires degree already completed,
+  senior/lead/principal roles, test/sample/fake postings
 """.strip()
 
 _SYSTEM_PROMPT_KEYWORDS = """
@@ -125,9 +115,9 @@ CRITICAL INSTRUCTIONS:
     rate_limit_cooldown_sec=LLM_RATE_LIMIT_COOLDOWN_SEC,
     logger=_logger,
 )
-def _call_llm_structured(user_prompt: str, response_model: Type[BaseModel], system_prompt: str = None, api_key: str = None) -> BaseModel:
+def _call_llm_structured(user_prompt: str, response_model: Type[BaseModel], system_prompt: str = None) -> BaseModel:
     _rate_limiter.wait()
-    sys_prompt = system_prompt or get_system_prompt()
+    sys_prompt = system_prompt or _SYSTEM_PROMPT_SINGLE
     
     # Prefix with gemini/ for litellm routing if it's a gemini model
     model_name = GEMINI_MODEL
@@ -143,29 +133,24 @@ def _call_llm_structured(user_prompt: str, response_model: Type[BaseModel], syst
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        api_key=api_key or GEMINI_API_KEY
+        api_key=GEMINI_API_KEY
     )
     return response
 
 def _normalize_result(result: dict) -> dict:
-    overall_score = result.get("overall_score", result.get("score", 0))
-    technical_fit_score = result.get("technical_fit_score", 0)
-    experience_fit_score = result.get("experience_fit_score", 0)
+    score = result.get("score", 0)
     try:
-        overall_score = max(0, min(10, int(overall_score)))
-        technical_fit_score = max(0, min(10, int(technical_fit_score)))
-        experience_fit_score = max(0, min(10, int(experience_fit_score)))
+        score = int(score)
+        score = max(0, min(10, score))
     except (TypeError, ValueError):
-        overall_score = 0
+        score = 0
     return {
         "verdict": str(result.get("verdict", "no")),
-        "score": overall_score,
-        "technical_fit_score": technical_fit_score,
-        "experience_fit_score": experience_fit_score,
+        "score": score,
         "reason": str(result.get("reason", "No reason provided")),
     }
 
-def score_job(job: dict, api_key: str = None, user_profile: dict = None) -> dict:
+def score_job(job: dict) -> dict:
     """Build the scoring prompt for a job and return the parsed verdict."""
     user_prompt = (
         f"Title: {job['title']}\n"
@@ -175,14 +160,13 @@ def score_job(job: dict, api_key: str = None, user_profile: dict = None) -> dict
         f"Description (excerpt): {job['description'][:LLM_MAX_DESC_CHARS]}"
     )
     try:
-        sys_prompt = get_system_prompt(user_profile)
-        result = _call_llm_structured(user_prompt, SingleJobEvaluation, system_prompt=sys_prompt, api_key=api_key)
+        result = _call_llm_structured(user_prompt, SingleJobEvaluation, system_prompt=_SYSTEM_PROMPT_SINGLE)
         return _normalize_result(result.model_dump())
     except Exception as exc:
         _logger.error("LLM call failed after retries: %s", exc)
         return _normalize_result({"verdict": "no", "score": 0, "reason": "model unavailable"})
 
-def score_jobs_batch(jobs: list[dict], api_key: str = None, user_profile: dict = None) -> list[dict]:
+def score_jobs_batch(jobs: list[dict]) -> list[dict]:
     """Score a batch of jobs in a single LLM call. Fallback to per-job on error."""
     if not jobs:
         return []
@@ -201,8 +185,7 @@ def score_jobs_batch(jobs: list[dict], api_key: str = None, user_profile: dict =
     user_prompt = "\n".join(user_prompt_lines)
 
     try:
-        sys_prompt = get_system_prompt(user_profile)
-        results = _call_llm_structured(user_prompt, BatchJobEvaluations, system_prompt=sys_prompt, api_key=api_key)
+        results = _call_llm_structured(user_prompt, BatchJobEvaluations, system_prompt=_SYSTEM_PROMPT_BATCH)
         # Match back by id
         result_map = {str(res.id): res.model_dump() for res in results.evaluations}
         
@@ -212,34 +195,34 @@ def score_jobs_batch(jobs: list[dict], api_key: str = None, user_profile: dict =
                 final_results.append(_normalize_result(result_map[str(i)]))
             else:
                 _logger.warning("Job %s missing in batch result, falling back to per-job", i)
-                final_results.append(score_job(jobs[i], api_key=api_key, user_profile=user_profile))
+                final_results.append(score_job(jobs[i]))
         return final_results
 
     except Exception as exc:
         _logger.error("Batch LLM call failed: %s. Falling back to per-job scoring.", exc)
-        return [score_job(job, api_key=api_key, user_profile=user_profile) for job in jobs]
+        return [score_job(job) for job in jobs]
 
-def analyze_job_keywords(job_description: str, base_resume: str, api_key: str = None) -> dict:
+def analyze_job_keywords(job_description: str, base_resume: str) -> dict:
     """Analyze keywords in job description and find matches/misses in base resume."""
     user_prompt = (
         f"=== JOB DESCRIPTION ===\n{job_description[:LLM_MAX_DESC_CHARS * 2]}\n\n"
         f"=== BASE RESUME ===\n{base_resume[:LLM_MAX_DESC_CHARS * 2]}"
     )
     try:
-        result = _call_llm_structured(user_prompt, KeywordAnalysis, system_prompt=_SYSTEM_PROMPT_KEYWORDS, api_key=api_key)
+        result = _call_llm_structured(user_prompt, KeywordAnalysis, system_prompt=_SYSTEM_PROMPT_KEYWORDS)
         return result.model_dump()
     except Exception as exc:
         _logger.error("Keyword analysis LLM call failed: %s", exc)
         return {"found": [], "missing": []}
 
-def generate_interview_questions(job_description: str, base_resume: str, api_key: str = None) -> list[dict]:
+def generate_interview_questions(job_description: str, base_resume: str) -> list[dict]:
     """Generate tailored interview questions based on job description and base resume."""
     user_prompt = (
         f"=== JOB DESCRIPTION ===\n{job_description[:LLM_MAX_DESC_CHARS * 2]}\n\n"
         f"=== BASE RESUME ===\n{base_resume[:LLM_MAX_DESC_CHARS * 2]}"
     )
     try:
-        result = _call_llm_structured(user_prompt, InterviewQuestionsList, system_prompt=_SYSTEM_PROMPT_INTERVIEW, api_key=api_key)
+        result = _call_llm_structured(user_prompt, InterviewQuestionsList, system_prompt=_SYSTEM_PROMPT_INTERVIEW)
         return [q.model_dump() for q in result.questions]
     except Exception as exc:
         _logger.error("Interview questions LLM call failed: %s", exc)

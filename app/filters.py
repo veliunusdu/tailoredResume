@@ -43,7 +43,9 @@ def _normalize(raw: dict) -> dict:
         }
 
 
-def filter_jobs(jobs: list[dict], user_settings: dict = None) -> list[dict]:
+from app.search_config import get_search_config
+
+def filter_jobs(jobs: list[dict], user_id: str) -> list[dict]:
     """
     Apply rule-based filtering + field normalization.
     No AI involved — pure keyword matching.
@@ -51,21 +53,9 @@ def filter_jobs(jobs: list[dict], user_settings: dict = None) -> list[dict]:
     if not isinstance(jobs, list):
         return []
 
-    blocklist = BLOCKLIST.copy()
-    allowlist = ALLOWLIST.copy()
-
-    if user_settings:
-        level = str(user_settings.get("experience_level", "")).lower()
-        skills = [s.lower() for s in user_settings.get("skills", [])]
-        roles = [r.lower() for r in user_settings.get("target_roles", [])]
-        
-        # If user is senior, don't block senior roles
-        if "senior" in level or "lead" in level or "principal" in level or "manager" in level:
-            blocklist = []
-        
-        if skills or roles:
-            # Create dynamic allowlist from user skills and target roles
-            allowlist = skills + roles
+    cfg = get_search_config(user_id)
+    blocklist = [t.lower() for t in cfg.get("exclude_titles", [])]
+    queries = [q["query"].lower() for q in cfg.get("queries", [])]
 
     filtered = []
     for job in jobs:
@@ -81,7 +71,7 @@ def filter_jobs(jobs: list[dict], user_settings: dict = None) -> list[dict]:
         tags_str = " ".join(str(t) for t in tags_list).lower()
         
         combined = title + " " + tags_str
-        if allowlist and not any(word in combined for word in allowlist):
+        if not any(word in combined for word in ALLOWLIST):
             continue
 
         filtered.append(_normalize(job))

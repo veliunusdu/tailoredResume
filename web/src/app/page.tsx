@@ -1,50 +1,86 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
-import { 
-  Briefcase, 
-  CheckCircle2, 
-  HelpCircle, 
-  Search, 
-  Filter, 
+import {
+  Briefcase,
+  CheckCircle2,
+  HelpCircle,
+  Search,
+  Filter,
   LayoutDashboard,
   Target,
   TrendingUp,
   Moon,
   Sun,
-  User
+  Settings,
+  FileText,
+  X,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { UserButton } from "@clerk/nextjs";
+import { useSafeAuth, isClerkConfigured } from "../hooks/useSafeAuth";
 import { Job, Stats } from "../types";
 import { JobCard } from "../components/JobCard";
 import { StatCard } from "../components/StatCard";
 import { FilterButton } from "../components/FilterButton";
-import { DiscoveryFunnel } from "../components/DiscoveryFunnel";
-import { useRouter } from "next/navigation";
+import { ResumeUploader } from "../components/ResumeUploader";
+import { SearchConfigPanel } from "../components/SearchConfigPanel";
+import { apiGet, apiPost } from "@/lib/api";
 
 export default function Dashboard() {
-  const router = useRouter();
+  const { getToken } = useSafeAuth();
+
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-  const [theme, setTheme] = useState("dark"); // Default to dark mode
-  const [region, setRegion] = useState("global");
-  const [discovering, setDiscovering] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [discoveryStatus, setDiscoveryStatus] = useState<string>("idle");
-  const [discoveryProgress, setDiscoveryProgress] = useState<string>("");
+  const [theme, setTheme] = useState("dark");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"resume" | "search">("resume");
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+  const handleSyncJobs = async () => {
+    setSyncing(true);
+    setSyncStatus("Sync queued...");
+    try {
+      await apiPost("/jobs/sync", {}, getToken);
+      setSyncStatus("Syncing...");
+      
+      // Poll every 3 seconds for 24 seconds to refresh the dashboard
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        try {
+          const [jobsData, statsData] = await Promise.all([
+            apiGet<Job[]>("/jobs", getToken),
+            apiGet<Stats>("/stats", getToken),
+          ]);
+          setJobs(jobsData);
+          setStats(statsData);
+        } catch (e) {
+          console.error("Error polling sync data:", e);
+        }
+        if (attempts >= 8) {
+          clearInterval(interval);
+          setSyncing(false);
+          setSyncStatus(null);
+        }
+      }, 3000);
+    } catch (error) {
+      console.error("Error syncing jobs:", error);
+      setSyncStatus("Failed");
+      setTimeout(() => {
+        setSyncing(false);
+        setSyncStatus(null);
+      }, 2000);
+    }
+  };
 
   useEffect(() => {
-    setSessionId(window.crypto.randomUUID());
-  }, []);
-
-  useEffect(() => {
-    // Apply theme class to html element
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
     } else {
@@ -52,114 +88,47 @@ export default function Dashboard() {
     }
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  };
-
-  const handleDiscover = async () => {
-    if (!sessionId) return;
-    setDiscovering(true);
-    setDiscoveryStatus("searching");
-    setDiscoveryProgress("Initializing search pipeline...");
-    try {
-      await fetch(`${apiUrl}/jobs/discover?region=${region}`, {
-        method: "POST",
-        headers: { "X-Session-ID": sessionId }
-      });
-    } catch (error: any) {
-      console.warn("Discovery error:", error.message || error);
-      setDiscovering(false);
-      setDiscoveryStatus("failed");
-      setDiscoveryProgress("Network error launching discovery.");
-    }
-  };
+  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
   useEffect(() => {
-    if (!sessionId) return;
     const fetchData = async () => {
       try {
-        const headers = { "X-Session-ID": sessionId };
-        const [jobsRes, statsRes] = await Promise.all([
-          fetch(`${apiUrl}/jobs`, { headers }),
-          fetch(`${apiUrl}/stats`, { headers })
+        const [jobsData, statsData] = await Promise.all([
+          apiGet<Job[]>("/jobs", getToken),
+          apiGet<Stats>("/stats", getToken),
         ]);
-        
-        if (!jobsRes.ok) throw new Error("Failed to fetch jobs");
-        
-        const jobsData = await jobsRes.json();
-        const statsData = await statsRes.json();
         setJobs(jobsData);
         setStats(statsData);
-      } catch (error: any) {
-        console.warn("Error fetching data:", error.message || error);
+      } catch (error) {
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [sessionId]);
+  }, [getToken]);
 
-  // Poll discovery status
-  useEffect(() => {
-    if (!sessionId) return;
-    let intervalId: NodeJS.Timeout;
-
-    const checkStatus = async () => {
-      try {
-        const res = await fetch(`${apiUrl}/jobs/discover/status`, {
-          headers: { "X-Session-ID": sessionId }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setDiscoveryStatus(data.status);
-          setDiscoveryProgress(data.progress);
-
-          if (data.status === "completed" || data.status === "failed") {
-            setDiscovering(false);
-            clearInterval(intervalId);
-            
-            // Auto reload jobs and stats
-            const headers = { "X-Session-ID": sessionId };
-            const [jobsRes, statsRes] = await Promise.all([
-              fetch(`${apiUrl}/jobs`, { headers }),
-              fetch(`${apiUrl}/stats`, { headers })
-            ]);
-            if (jobsRes.ok) setJobs(await jobsRes.json());
-            if (statsRes.ok) setStats(await statsRes.json());
-          } else if (data.status !== "idle") {
-            setDiscovering(true);
-          }
-        }
-      } catch (err: any) {
-        console.warn("Error polling discovery status:", err.message || err);
-      }
-    };
-
-    checkStatus();
-
-    // Poll every 3 seconds if active
-    intervalId = setInterval(checkStatus, 3000);
-
-    return () => clearInterval(intervalId);
-  }, [sessionId, discovering]);
-
-  const filteredJobs = jobs.filter(job => {
-    const matchesSearch = job.title.toLowerCase().includes(search.toLowerCase()) || 
-                          job.company.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filter === "all" || 
-                          (filter === "strong" && job.score >= 7) ||
-                          (filter === "maybe" && job.score >= 4 && job.score < 7);
+  const filteredJobs = jobs.filter((job) => {
+    const matchesSearch =
+      job.title.toLowerCase().includes(search.toLowerCase()) ||
+      job.company.toLowerCase().includes(search.toLowerCase());
+    const matchesFilter =
+      filter === "all" ||
+      (filter === "strong" && job.score >= 7) ||
+      (filter === "maybe" && job.score >= 4 && job.score < 7);
     return matchesSearch && matchesFilter;
   });
 
-  if (loading || !sessionId) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="bg-blobs" />
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-[var(--muted-foreground)] animate-pulse font-medium">Initializing Dashboard...</p>
+          <div className="w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[var(--muted-foreground)] animate-pulse font-medium">
+            Initializing Dashboard…
+          </p>
         </div>
       </div>
     );
@@ -177,53 +146,101 @@ export default function Dashboard() {
             <div className="bg-gradient-to-br from-indigo-500 to-pink-500 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20">
               <Target className="text-white w-6 h-6" />
             </div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-gradient">TailoredResume</h1>
+            <h1 className="text-4xl font-extrabold tracking-tight text-gradient">
+              TailoredResume
+            </h1>
           </div>
-          <p className="text-[var(--muted-foreground)] font-medium">Your autonomous career intelligence command center.</p>
+          <p className="text-[var(--muted-foreground)] font-medium">
+            Your autonomous career intelligence command center.
+          </p>
         </div>
-        
-        <div className="flex items-center gap-4">
-          <Link href={`/profile?session=${sessionId || ""}`} className="glass p-3 rounded-xl flex items-center justify-center text-[var(--foreground)] hover:scale-105 transition-transform" aria-label="Profile">
-            <User className="w-5 h-5" />
-          </Link>
-          <button 
+
+        <div className="flex items-center gap-3">
+          {/* Sync Jobs Button */}
+          <button
+            id="sync-jobs-btn"
+            onClick={handleSyncJobs}
+            disabled={syncing}
+            className="glass px-4 py-3 rounded-xl flex items-center gap-2 hover:scale-105 transition-all disabled:opacity-50 disabled:scale-100"
+          >
+            {syncing ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+                <span className="text-sm font-bold text-indigo-400">{syncStatus}</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-5 h-5 text-indigo-400 animate-pulse" />
+                <span className="text-sm font-bold text-indigo-300">Sync Jobs</span>
+              </>
+            )}
+          </button>
+
+          {/* Theme Toggle */}
+          <button
+            id="theme-toggle-btn"
             onClick={toggleTheme}
             className="glass p-3 rounded-xl flex items-center justify-center text-[var(--foreground)] hover:scale-105 transition-transform"
             aria-label="Toggle Theme"
           >
             {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
+
+          {/* Settings Button */}
+          <button
+            id="settings-btn"
+            onClick={() => setSettingsOpen(true)}
+            className="glass p-3 rounded-xl flex items-center justify-center text-[var(--foreground)] hover:scale-105 transition-transform"
+            aria-label="Settings"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+
+          {/* API Status */}
           <div className="glass px-5 py-3 rounded-xl flex items-center gap-3 shadow-lg shadow-black/5">
-            <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]"></span>
+            <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
             <span className="text-sm font-bold tracking-wide">API Operational</span>
           </div>
+
+          {/* Clerk User Menu */}
+          {isClerkConfigured && (
+            <div className="glass p-1.5 rounded-xl">
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "w-8 h-8",
+                  },
+                }}
+              />
+            </div>
+          )}
         </div>
       </header>
 
       {/* Stats Grid */}
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        <StatCard 
+        <StatCard
           icon={<LayoutDashboard className="w-6 h-6 text-blue-500" />}
           label="Discovered Jobs"
           value={stats?.total || 0}
           subValue="Across all platforms"
           color="blue"
         />
-        <StatCard 
+        <StatCard
           icon={<CheckCircle2 className="w-6 h-6 text-emerald-500" />}
           label="Strong Matches"
           value={stats?.strong || 0}
           subValue="Score ≥ 7/10"
           color="emerald"
         />
-        <StatCard 
+        <StatCard
           icon={<HelpCircle className="w-6 h-6 text-amber-500" />}
           label="Potential Leads"
           value={stats?.maybe || 0}
           subValue="Score 4-6/10"
           color="amber"
         />
-        <StatCard 
+        <StatCard
           icon={<TrendingUp className="w-6 h-6 text-indigo-500" />}
           label="Avg Fit Score"
           value={`${stats?.avg_score || 0}/10`}
@@ -234,50 +251,51 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto">
-        <DiscoveryFunnel stats={stats} />
         <div className="flex flex-col lg:flex-row gap-8">
-          
           {/* Sidebar / Filters */}
           <aside className="w-full lg:w-80 space-y-6">
             <div className="glass p-6 rounded-2xl shadow-xl shadow-black/5 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-              
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl -mr-10 -mt-10" />
+
               <h2 className="text-xl font-bold mb-6 flex items-center gap-2 relative z-10">
                 <Filter className="w-5 h-5 text-indigo-500" />
                 Refine Pipeline
               </h2>
-              
+
               <div className="space-y-6 relative z-10">
                 <div className="relative">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
-                  <input 
-                    type="text" 
-                    placeholder="Search roles or companies..."
+                  <input
+                    id="job-search-input"
+                    type="text"
+                    placeholder="Search roles or companies…"
                     className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl py-3 pl-10 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all shadow-inner"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
-                
+
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-widest">Quality Tier</label>
+                  <label className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-widest">
+                    Quality Tier
+                  </label>
                   <div className="grid grid-cols-1 gap-2.5">
-                    <FilterButton 
-                      active={filter === "all"} 
-                      onClick={() => setFilter("all")} 
-                      label="All Discovered" 
+                    <FilterButton
+                      active={filter === "all"}
+                      onClick={() => setFilter("all")}
+                      label="All Discovered"
                     />
-                    <FilterButton 
-                      active={filter === "strong"} 
-                      onClick={() => setFilter("strong")} 
-                      label="Strong Matches" 
+                    <FilterButton
+                      active={filter === "strong"}
+                      onClick={() => setFilter("strong")}
+                      label="Strong Matches"
                       count={stats?.strong}
                       color="emerald"
                     />
-                    <FilterButton 
-                      active={filter === "maybe"} 
-                      onClick={() => setFilter("maybe")} 
-                      label="Potential Leads" 
+                    <FilterButton
+                      active={filter === "maybe"}
+                      onClick={() => setFilter("maybe")}
+                      label="Potential Leads"
                       count={stats?.maybe}
                       color="amber"
                     />
@@ -286,118 +304,45 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="glass p-6 rounded-2xl shadow-xl shadow-black/5 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-              
-              <h2 className="text-xl font-bold mb-6 flex items-center gap-2 relative z-10">
-                <Target className="w-5 h-5 text-pink-500" />
-                Regional Intelligence
-              </h2>
-              
-              <div className="space-y-6 relative z-10">
-                <div className="space-y-3">
-                  <label className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-widest">Select Market</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button 
-                      onClick={() => setRegion("global")}
-                      className={`py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${region === "global" ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/30" : "bg-[var(--secondary)] hover:bg-[var(--border)] text-[var(--muted-foreground)]"}`}
-                    >
-                      🌍 Global
-                    </button>
-                    <button 
-                      onClick={() => setRegion("turkey")}
-                      className={`py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${region === "turkey" ? "bg-pink-500 text-white shadow-lg shadow-pink-500/30" : "bg-[var(--secondary)] hover:bg-[var(--border)] text-[var(--muted-foreground)]"}`}
-                    >
-                      🇹🇷 Turkey
-                    </button>
-                  </div>
-                </div>
-
-                <button 
-                  onClick={handleDiscover}
-                  disabled={discovering}
-                  className="w-full bg-gradient-to-r from-indigo-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 disabled:opacity-50 text-white py-4 rounded-xl font-bold text-sm shadow-xl shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 group"
-                >
-                  {discovering ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  ) : (
-                    <Search className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                  )}
-                  {discovering ? "Scanning..." : "Start Discovery"}
-                </button>
-
-                {discoveryStatus !== "idle" && (
-                  <div className={`space-y-2 p-4 rounded-xl border transition-all ${
-                    discoveryStatus === "completed" 
-                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
-                      : discoveryStatus === "failed" 
-                      ? "bg-rose-500/10 border-rose-500/20 text-rose-400" 
-                      : "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
-                  }`}>
-                    <div className="flex items-center gap-2">
-                      {discoveryStatus !== "completed" && discoveryStatus !== "failed" && (
-                        <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                      )}
-                      <span className="text-xs font-bold uppercase tracking-wider">
-                        {discoveryStatus === "completed" 
-                          ? "✓ Search Completed" 
-                          : discoveryStatus === "failed" 
-                          ? "⚠ Search Failed" 
-                          : "Scanning Market..."}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[var(--muted-foreground)] font-medium leading-relaxed">
-                      {discoveryProgress}
-                    </p>
-                  </div>
-                )}
-                
-                <p className="text-[10px] text-[var(--muted-foreground)] text-center font-medium px-4">
-                  Powered by Kariyer.net, Techcareer, LinkedIn & Indeed
-                </p>
-              </div>
-            </div>
-
-            <div className="glass p-6 rounded-2xl border-l-4 border-l-pink-500 shadow-lg shadow-pink-500/10 bg-gradient-to-br from-pink-500/5 to-transparent relative overflow-hidden">
+            {/* Settings Quick Action */}
+            <div className="glass p-6 rounded-2xl border-l-4 border-l-indigo-500 shadow-lg shadow-indigo-500/10 bg-gradient-to-br from-indigo-500/5 to-transparent relative overflow-hidden">
               <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
-                <LayoutDashboard className="w-5 h-5 text-pink-500" />
-                Autonomous Mode
+                <FileText className="w-5 h-5 text-indigo-500" />
+                Your Resumes
               </h3>
               <p className="text-sm text-[var(--muted-foreground)] font-medium mb-4 leading-relaxed">
-                Run the background engine to refresh your pipeline with new opportunities.
+                Upload your resume and configure your job search preferences.
               </p>
-              <code className="block bg-[var(--background)] p-3 rounded-xl text-xs text-pink-500 font-mono mb-2 border border-pink-500/20 shadow-inner">
-                python main.py run
-              </code>
+              <button
+                id="open-settings-sidebar-btn"
+                onClick={() => setSettingsOpen(true)}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                Open Settings
+              </button>
             </div>
           </aside>
 
           {/* Job Feed */}
           <div className="flex-1 space-y-4">
-            <div className="flex flex-col mb-4 glass px-6 py-5 rounded-2xl shadow-sm border border-[var(--border)] relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold flex items-center gap-3">
-                  <Briefcase className="w-6 h-6 text-indigo-500" />
-                  Opportunity Feed
-                </h2>
-                <span className="bg-[var(--secondary)] text-[var(--foreground)] px-4 py-1.5 rounded-full text-sm font-bold shadow-inner">
-                  {filteredJobs.length} matches
-                </span>
-              </div>
-              {stats?.last_discovery && (
-                <p className="text-sm font-medium text-[var(--muted-foreground)] mt-3 pt-3 border-t border-[var(--border)] leading-relaxed">
-                  We analyzed <span className="text-indigo-400 font-extrabold">{stats.last_discovery.raw_scraped_count}</span> jobs from job boards and identified <span className="text-emerald-400 font-extrabold">{stats.last_discovery.strong_count}</span> perfect matches tailored specifically to your profile.
-                </p>
-              )}
+            <div className="flex items-center justify-between mb-4 glass px-6 py-4 rounded-2xl shadow-sm">
+              <h2 className="text-2xl font-bold flex items-center gap-3">
+                <Briefcase className="w-6 h-6 text-indigo-500" />
+                Opportunity Feed
+              </h2>
+              <span className="bg-[var(--secondary)] text-[var(--foreground)] px-4 py-1.5 rounded-full text-sm font-bold shadow-inner">
+                {filteredJobs.length} matches
+              </span>
             </div>
 
             <AnimatePresence mode="popLayout">
               {filteredJobs.length > 0 ? (
                 filteredJobs.map((job, index) => (
-                  <JobCard key={job.id} job={job} index={index} sessionId={sessionId} />
+                  <JobCard key={job.id} job={job} index={index} />
                 ))
               ) : (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   className="glass rounded-2xl p-20 text-center border-2 border-dashed border-[var(--border)] bg-gradient-to-b from-[var(--secondary)]/30 to-transparent"
@@ -406,13 +351,110 @@ export default function Dashboard() {
                     <Search className="w-10 h-10 text-[var(--muted-foreground)]" />
                   </div>
                   <h3 className="text-2xl font-bold mb-3">No matches found</h3>
-                  <p className="text-[var(--muted-foreground)] font-medium text-lg">Try adjusting your filters or search terms.</p>
+                  <p className="text-[var(--muted-foreground)] font-medium text-lg">
+                    Try adjusting your filters or search terms.
+                  </p>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
         </div>
       </main>
+
+      {/* Settings Modal */}
+      <AnimatePresence>
+        {settingsOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              onClick={() => setSettingsOpen(false)}
+            />
+
+            {/* Panel */}
+            <motion.div
+              initial={{ opacity: 0, x: "100%" }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 280 }}
+              className="fixed right-0 top-0 h-full w-full max-w-lg bg-[var(--card)] border-l border-[var(--border)] z-50 overflow-y-auto shadow-2xl"
+            >
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-[var(--card)] border-b border-[var(--border)] px-6 py-5 flex items-center justify-between z-10">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-indigo-400" />
+                  Settings
+                </h2>
+                <button
+                  id="close-settings-btn"
+                  onClick={() => setSettingsOpen(false)}
+                  className="p-2 rounded-xl hover:bg-[var(--secondary)] transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex border-b border-[var(--border)]">
+                <button
+                  id="settings-tab-resume"
+                  onClick={() => setActiveSettingsTab("resume")}
+                  className={`flex-1 py-4 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
+                    activeSettingsTab === "resume"
+                      ? "text-indigo-400 border-b-2 border-indigo-400"
+                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                  }`}
+                >
+                  <FileText className="w-4 h-4" />
+                  Resumes
+                </button>
+                <button
+                  id="settings-tab-search"
+                  onClick={() => setActiveSettingsTab("search")}
+                  className={`flex-1 py-4 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
+                    activeSettingsTab === "search"
+                      ? "text-indigo-400 border-b-2 border-indigo-400"
+                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                  }`}
+                >
+                  <Search className="w-4 h-4" />
+                  Search Config
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              <div className="p-6 space-y-6">
+                {activeSettingsTab === "resume" && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-[var(--muted-foreground)]">
+                      Upload one or more resumes. The AI will automatically select the best
+                      one for each job when tailoring.
+                    </p>
+                    <ResumeUploader
+                      onUploadSuccess={(resume) => {
+                        console.log("Resume uploaded:", resume);
+                      }}
+                    />
+                  </div>
+                )}
+
+                {activeSettingsTab === "search" && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-[var(--muted-foreground)]">
+                      Configure your job search preferences. These settings apply to all
+                      future pipeline runs.
+                    </p>
+                    <SearchConfigPanel />
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

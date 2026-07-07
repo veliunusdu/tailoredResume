@@ -15,11 +15,14 @@ def main():
 
     # Dashboard command
     dashboard_parser = subparsers.add_parser("dashboard", help="Start the Next.js backend API")
-    dashboard_parser.add_argument("--port", type=int, default=8000, help="Port for the API")
+    dashboard_parser.add_argument("--port", type=int, default=8001, help="Port for the API")
     
     # API command (alias for dashboard)
     api_parser = subparsers.add_parser("api", help="Launch the FastAPI backend server (alias for dashboard)")
-    api_parser.add_argument("--port", type=int, default=8000, help="Port for the API")
+    api_parser.add_argument("--port", type=int, default=8001, help="Port for the API")
+    
+    # Run command
+    run_parser = subparsers.add_parser("run", help="Fetch, filter, and score new jobs")
     
     args = parser.parse_args()
     
@@ -42,6 +45,9 @@ def main():
             print("ℹ️ No database files found to delete.")
         else:
             print("🔄 Database reset complete. The schema will be recreated on the next run.")
+    elif args.command == "run":
+        from app.agent import run as run_agent
+        run_agent()
     elif args.command in ["dashboard", "api"]:
         # Import app here to avoid requiring all dependencies for other commands
         from app.api import app

@@ -1,15 +1,66 @@
 services:
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: "postgres:16-alpine"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: tailoredresume
+    ports:
+      - "5439:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (Celery broker) ───────────────────────────────────────────────────
+  redis:
+    image: "redis:7-alpine"
+    ports:
+      - "6379:6379"
+    restart: always
+
+  # ── FastAPI Backend ─────────────────────────────────────────────────────────
   backend:
     build:
       context: .
       dockerfile: Dockerfile.backend
     ports:
-      - "8000:8000"
-    volumes:
-      - ./data:/app/data
-      - .env:/app/.env
+      - "8001:8001"
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/tailoredresume
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     restart: always
 
+  # ── Celery Worker ───────────────────────────────────────────────────────────
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/tailoredresume
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: always
+
+  # ── Next.js Frontend ────────────────────────────────────────────────────────
   frontend:
     build:
       context: ./web
@@ -17,28 +68,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://backend:8001
     depends_on:
       - backend
-      - redis
     restart: always
 
-  redis:
-    image: "redis:alpine"
-    ports:
-      - "6379:6379"
-    restart: always
-
-  celery_worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
-    volumes:
-      - ./data:/app/data
-      - .env:/app/.env
-    depends_on:
-      - redis
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-    restart: always
+volumes:
+  postgres_data:

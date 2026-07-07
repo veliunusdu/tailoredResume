@@ -9,16 +9,15 @@ python-jobspy
 pyyaml
 beautifulsoup4
 litellm
-instructor
 playwright
 fastapi
 uvicorn
 celery
 redis
-supabase
-PyJWT
-python-dateutil
-python-multipart
+# Cloud / multi-tenant dependencies
+psycopg2-binary
+PyJWT[crypto]
 cryptography
-pypdf
-docx2txt
+httpx
+instructor
+python-multipart
