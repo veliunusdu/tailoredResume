@@ -1,11 +1,10 @@
 import pytest
-import json
 from app.llm import (
     score_job, 
     score_jobs_batch, 
-    _normalize_result,
-    SingleJobEvaluation,
-    BatchJobEvaluations,
+    _normalize_result, 
+    SingleJobEvaluation, 
+    BatchJobEvaluations, 
     BatchJobEvaluationItem
 )
 
@@ -32,14 +31,8 @@ def test_normalize_result_missing_fields():
     assert norm["reason"] == "No reason provided"
 
 def test_score_job_success(mocker):
-    # Mock the _call_llm_structured to return a Pydantic model
-    mock_eval = SingleJobEvaluation(
-        verdict="yes",
-        technical_fit_score=9,
-        experience_fit_score=9,
-        overall_score=9,
-        reason="Excellent"
-    )
+    # Mock the _call_llm_structured function to return a SingleJobEvaluation Pydantic model
+    mock_eval = SingleJobEvaluation(verdict="yes", score=9, reason="Excellent")
     mocker.patch("app.llm._call_llm_structured", return_value=mock_eval)
     
     job = {"title": "Junior Python", "company": "Test", "location": "Remote", "tags": [], "description": ""}
@@ -47,8 +40,8 @@ def test_score_job_success(mocker):
     assert result["score"] == 9
     assert result["verdict"] == "yes"
 
-def test_score_job_malformed_json(mocker):
-    # When _call_llm_structured raises an exception, score_job should catch it and return fallback
+def test_score_job_failure(mocker):
+    # Mock _call_llm_structured to raise an exception to test fallback behavior
     mocker.patch("app.llm._call_llm_structured", side_effect=Exception("API Error"))
     
     job = {"title": "Junior Python", "company": "Test", "location": "Remote", "tags": [], "description": ""}
@@ -56,35 +49,12 @@ def test_score_job_malformed_json(mocker):
     assert result["verdict"] == "no"
     assert result["reason"] == "model unavailable"
 
-def test_score_job_with_custom_profile(mocker):
-    mock_eval = SingleJobEvaluation(
-        verdict="maybe",
-        technical_fit_score=5,
-        experience_fit_score=5,
-        overall_score=5,
-        reason="OK"
-    )
-    mock_call = mocker.patch("app.llm._call_llm_structured", return_value=mock_eval)
-    
-    job = {"title": "Junior Python", "company": "Test", "location": "Remote", "tags": [], "description": ""}
-    user_profile = {"experience_level": "junior", "skills": ["Python"]}
-    result = score_job(job, api_key="test-key", user_profile=user_profile)
-    assert result["score"] == 5
-    assert result["verdict"] == "maybe"
-    
-    # Verify the parameters passed to _call_llm_structured
-    mock_call.assert_called_once()
-    kwargs = mock_call.call_args[1]
-    assert kwargs["api_key"] == "test-key"
-    assert "junior" in kwargs["system_prompt"]
-
 def test_score_jobs_batch_success(mocker):
-    mock_evals = BatchJobEvaluations(
-        evaluations=[
-            BatchJobEvaluationItem(id="0", verdict="yes", technical_fit_score=8, experience_fit_score=8, overall_score=8, reason="Match 1"),
-            BatchJobEvaluationItem(id="1", verdict="no", technical_fit_score=2, experience_fit_score=2, overall_score=2, reason="Match 2")
-        ]
-    )
+    # Mock _call_llm_structured to return BatchJobEvaluations Pydantic model
+    mock_evals = BatchJobEvaluations(evaluations=[
+        BatchJobEvaluationItem(id="0", verdict="yes", score=8, reason="Match 1"),
+        BatchJobEvaluationItem(id="1", verdict="no", score=2, reason="Match 2")
+    ])
     mocker.patch("app.llm._call_llm_structured", return_value=mock_evals)
     
     jobs = [

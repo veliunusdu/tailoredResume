@@ -1,14 +1,16 @@
 import pytest
-import requests_mock
 import re
+import requests_mock
 from app.jobs import fetch_jobs, _fetch_jobs_remote
 
 def test_fetch_jobs_success(requests_mock, mocker):
-    # Mock user settings
-    mocker.patch("app.jobs.get_user_settings", return_value={
-        "target_roles": ["Python developer"],
-        "locations": ["Remote"]
-    })
+    # Mock user search configs
+    mocker.patch("app.jobs.build_searches_for_user", return_value=[{
+        "term": "Python developer",
+        "location": "Remote",
+        "limit": 20,
+        "platforms": ["remotive"]
+    }])
     
     # Mock jobspy and regional fetchers to avoid external requests or missing package failures
     mocker.patch("app.jobs._fetch_jobs_jobspy", return_value=[])
@@ -24,10 +26,12 @@ def test_fetch_jobs_success(requests_mock, mocker):
     assert jobs[0]["source_type"] == "remotive"
 
 def test_fetch_jobs_api_failure(requests_mock, mocker):
-    mocker.patch("app.jobs.get_user_settings", return_value={
-        "target_roles": ["Python developer"],
-        "locations": ["Remote"]
-    })
+    mocker.patch("app.jobs.build_searches_for_user", return_value=[{
+        "term": "Python developer",
+        "location": "Remote",
+        "limit": 20,
+        "platforms": ["remotive"]
+    }])
     mocker.patch("app.jobs._fetch_jobs_jobspy", return_value=[])
     mocker.patch("app.jobs._fetch_jobs_kariyer", return_value=[])
     mocker.patch("app.jobs._fetch_jobs_techcareer", return_value=[])
@@ -40,10 +44,12 @@ def test_fetch_jobs_api_failure(requests_mock, mocker):
     assert jobs == []
 
 def test_fetch_jobs_invalid_schema(requests_mock, mocker):
-    mocker.patch("app.jobs.get_user_settings", return_value={
-        "target_roles": ["Python developer"],
-        "locations": ["Remote"]
-    })
+    mocker.patch("app.jobs.build_searches_for_user", return_value=[{
+        "term": "Python developer",
+        "location": "Remote",
+        "limit": 20,
+        "platforms": ["remotive"]
+    }])
     mocker.patch("app.jobs._fetch_jobs_jobspy", return_value=[])
     mocker.patch("app.jobs._fetch_jobs_kariyer", return_value=[])
     mocker.patch("app.jobs._fetch_jobs_techcareer", return_value=[])

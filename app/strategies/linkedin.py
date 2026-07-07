@@ -23,32 +23,9 @@ class LinkedInEasyApplyStrategy(ApplyStrategy):
 
         # Check if we're logged in
         if "login" in page.url or "authwall" in page.url:
-            password = payload.profile.get("secrets", {}).get("linkedin_password")
-            email = payload.profile.get("email")
-            
-            if password and email:
-                _logger.info("   🔑 Session expired. Attempting autonomous login...")
-                try:
-                    # If we are on authwall, sometimes we need to click "Sign in" first
-                    if "authwall" in page.url:
-                        page.locator("a.authwall-base__sign-in-button, a:has-text('Sign in')").first.click(timeout=5000)
-                        page.wait_for_load_state("networkidle")
-
-                    page.locator("#username").fill(email, timeout=5000)
-                    page.locator("#password").fill(password, timeout=5000)
-                    page.locator("button[type='submit']").click(timeout=5000)
-                    page.wait_for_load_state("networkidle")
-                    
-                    # Navigate back to the job
-                    page.goto(payload.job_url, wait_until="domcontentloaded", timeout=20000)
-                except Exception as e:
-                    _logger.error("   ❌ Autonomous login failed: %s", e)
-                    return ApplyResult(False, "manual_required", "linkedin", 
-                                       error_msg="LinkedIn autonomous login failed. Please record session manually.")
-            else:
-                _logger.error("❌ Not logged into LinkedIn. Run: POST /sessions/linkedin/record")
-                return ApplyResult(False, "manual_required", "linkedin",
-                                   error_msg="LinkedIn session not found. Please record your session first.")
+            _logger.error("❌ Not logged into LinkedIn. Run: POST /sessions/linkedin/record")
+            return ApplyResult(False, "manual_required", "linkedin",
+                               error_msg="LinkedIn session not found. Please record your session first.")
 
         # Click the Easy Apply button — use CSS class + aria-label, NOT text (works in any language)
         _logger.info("   🖱️  Clicking Easy Apply button...")

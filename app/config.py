@@ -20,12 +20,9 @@ SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 PROXY_URL       = os.getenv("PROXY_URL", "")
 
 # ── API ───────────────────────────────────────────────────────────────────────
-GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY") or os.getenv("DEEPSEEK_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
-GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 WEBHOOK_URL      = os.getenv("WEBHOOK_URL", "")
-ENCRYPTION_MASTER_KEY = os.getenv("ENCRYPTION_MASTER_KEY", "")
-BROWSERLESS_URL  = os.getenv("BROWSERLESS_URL", "")
-PLAYWRIGHT_PROXY_URL = os.getenv("PLAYWRIGHT_PROXY_URL", "")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR         = Path(__file__).resolve().parents[1]
@@ -68,35 +65,27 @@ LLM_RATE_LIMIT_COOLDOWN_SEC = float(os.getenv("LLM_RATE_LIMIT_COOLDOWN_SEC", "60
 LLM_MAX_DESC_CHARS          = int(os.getenv("LLM_MAX_DESC_CHARS", "600"))
 
 # ── Config Loaders ────────────────────────────────────────────────────────────
-def load_searches(region: str = None) -> list[dict]:
+def load_searches() -> list[dict]:
     if SEARCHES_YAML.exists():
         with open(SEARCHES_YAML, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
-            
-            # If region is specified and exists in config, override boards and locations
-            region_config = data.get("regions", {}).get(region) if region else None
-            
-            queries = [q["query"] for q in data.get("queries", [])]
-            
-            if region_config:
-                locations = region_config.get("locations", ["Remote"])
-                boards = region_config.get("boards", [])
-            else:
+            if "queries" in data and "locations" in data:
+                queries = [q["query"] for q in data.get("queries", [])]
                 locations = [loc["location"] for loc in data.get("locations", [])]
                 boards = data.get("boards", [])
+                limit = data.get("defaults", {}).get("results_per_site", 20)
                 
-            limit = data.get("defaults", {}).get("results_per_site", 20)
-            
-            searches = []
-            for term in queries:
-                for location in locations:
-                    searches.append({
-                        "term": term,
-                        "location": location,
-                        "limit": limit,
-                        "platforms": boards
-                    })
-            return searches
+                searches = []
+                for term in queries:
+                    for location in locations:
+                        searches.append({
+                            "term": term,
+                            "location": location,
+                            "limit": limit,
+                            "platforms": boards
+                        })
+                return searches
+            return data.get("searches", [])
     return []
 
 def load_sites() -> dict:
