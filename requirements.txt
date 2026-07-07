@@ -9,8 +9,16 @@ python-jobspy
 pyyaml
 beautifulsoup4
 litellm
+instructor
 playwright
 fastapi
 uvicorn
 celery
 redis
+supabase
+PyJWT
+python-dateutil
+python-multipart
+cryptography
+pypdf
+docx2txt

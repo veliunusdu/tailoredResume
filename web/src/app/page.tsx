@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { 
   Briefcase, 
   CheckCircle2, 
@@ -11,21 +12,36 @@ import {
   Target,
   TrendingUp,
   Moon,
-  Sun
+  Sun,
+  User
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Job, Stats } from "../types";
 import { JobCard } from "../components/JobCard";
 import { StatCard } from "../components/StatCard";
 import { FilterButton } from "../components/FilterButton";
+import { DiscoveryFunnel } from "../components/DiscoveryFunnel";
+import { useRouter } from "next/navigation";
 
 export default function Dashboard() {
+  const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [theme, setTheme] = useState("dark"); // Default to dark mode
+  const [region, setRegion] = useState("global");
+  const [discovering, setDiscovering] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [discoveryStatus, setDiscoveryStatus] = useState<string>("idle");
+  const [discoveryProgress, setDiscoveryProgress] = useState<string>("");
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+  useEffect(() => {
+    setSessionId(window.crypto.randomUUID());
+  }, []);
 
   useEffect(() => {
     // Apply theme class to html element
@@ -40,26 +56,93 @@ export default function Dashboard() {
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
+  const handleDiscover = async () => {
+    if (!sessionId) return;
+    setDiscovering(true);
+    setDiscoveryStatus("searching");
+    setDiscoveryProgress("Initializing search pipeline...");
+    try {
+      await fetch(`${apiUrl}/jobs/discover?region=${region}`, {
+        method: "POST",
+        headers: { "X-Session-ID": sessionId }
+      });
+    } catch (error: any) {
+      console.warn("Discovery error:", error.message || error);
+      setDiscovering(false);
+      setDiscoveryStatus("failed");
+      setDiscoveryProgress("Network error launching discovery.");
+    }
+  };
+
   useEffect(() => {
+    if (!sessionId) return;
     const fetchData = async () => {
       try {
+        const headers = { "X-Session-ID": sessionId };
         const [jobsRes, statsRes] = await Promise.all([
-          fetch("http://localhost:8000/jobs"),
-          fetch("http://localhost:8000/stats")
+          fetch(`${apiUrl}/jobs`, { headers }),
+          fetch(`${apiUrl}/stats`, { headers })
         ]);
+        
+        if (!jobsRes.ok) throw new Error("Failed to fetch jobs");
+        
         const jobsData = await jobsRes.json();
         const statsData = await statsRes.json();
         setJobs(jobsData);
         setStats(statsData);
-      } catch (error) {
-        console.error("Error fetching data:", error);
+      } catch (error: any) {
+        console.warn("Error fetching data:", error.message || error);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [sessionId]);
+
+  // Poll discovery status
+  useEffect(() => {
+    if (!sessionId) return;
+    let intervalId: NodeJS.Timeout;
+
+    const checkStatus = async () => {
+      try {
+        const res = await fetch(`${apiUrl}/jobs/discover/status`, {
+          headers: { "X-Session-ID": sessionId }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setDiscoveryStatus(data.status);
+          setDiscoveryProgress(data.progress);
+
+          if (data.status === "completed" || data.status === "failed") {
+            setDiscovering(false);
+            clearInterval(intervalId);
+            
+            // Auto reload jobs and stats
+            const headers = { "X-Session-ID": sessionId };
+            const [jobsRes, statsRes] = await Promise.all([
+              fetch(`${apiUrl}/jobs`, { headers }),
+              fetch(`${apiUrl}/stats`, { headers })
+            ]);
+            if (jobsRes.ok) setJobs(await jobsRes.json());
+            if (statsRes.ok) setStats(await statsRes.json());
+          } else if (data.status !== "idle") {
+            setDiscovering(true);
+          }
+        }
+      } catch (err: any) {
+        console.warn("Error polling discovery status:", err.message || err);
+      }
+    };
+
+    checkStatus();
+
+    // Poll every 3 seconds if active
+    intervalId = setInterval(checkStatus, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [sessionId, discovering]);
 
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(search.toLowerCase()) || 
@@ -70,7 +153,7 @@ export default function Dashboard() {
     return matchesSearch && matchesFilter;
   });
 
-  if (loading) {
+  if (loading || !sessionId) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="bg-blobs" />
@@ -100,6 +183,9 @@ export default function Dashboard() {
         </div>
         
         <div className="flex items-center gap-4">
+          <Link href={`/profile?session=${sessionId || ""}`} className="glass p-3 rounded-xl flex items-center justify-center text-[var(--foreground)] hover:scale-105 transition-transform" aria-label="Profile">
+            <User className="w-5 h-5" />
+          </Link>
           <button 
             onClick={toggleTheme}
             className="glass p-3 rounded-xl flex items-center justify-center text-[var(--foreground)] hover:scale-105 transition-transform"
@@ -148,6 +234,7 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto">
+        <DiscoveryFunnel stats={stats} />
         <div className="flex flex-col lg:flex-row gap-8">
           
           {/* Sidebar / Filters */}
@@ -199,6 +286,78 @@ export default function Dashboard() {
               </div>
             </div>
 
+            <div className="glass p-6 rounded-2xl shadow-xl shadow-black/5 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+              
+              <h2 className="text-xl font-bold mb-6 flex items-center gap-2 relative z-10">
+                <Target className="w-5 h-5 text-pink-500" />
+                Regional Intelligence
+              </h2>
+              
+              <div className="space-y-6 relative z-10">
+                <div className="space-y-3">
+                  <label className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-widest">Select Market</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button 
+                      onClick={() => setRegion("global")}
+                      className={`py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${region === "global" ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/30" : "bg-[var(--secondary)] hover:bg-[var(--border)] text-[var(--muted-foreground)]"}`}
+                    >
+                      🌍 Global
+                    </button>
+                    <button 
+                      onClick={() => setRegion("turkey")}
+                      className={`py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${region === "turkey" ? "bg-pink-500 text-white shadow-lg shadow-pink-500/30" : "bg-[var(--secondary)] hover:bg-[var(--border)] text-[var(--muted-foreground)]"}`}
+                    >
+                      🇹🇷 Turkey
+                    </button>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={handleDiscover}
+                  disabled={discovering}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 disabled:opacity-50 text-white py-4 rounded-xl font-bold text-sm shadow-xl shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 group"
+                >
+                  {discovering ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <Search className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  )}
+                  {discovering ? "Scanning..." : "Start Discovery"}
+                </button>
+
+                {discoveryStatus !== "idle" && (
+                  <div className={`space-y-2 p-4 rounded-xl border transition-all ${
+                    discoveryStatus === "completed" 
+                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+                      : discoveryStatus === "failed" 
+                      ? "bg-rose-500/10 border-rose-500/20 text-rose-400" 
+                      : "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      {discoveryStatus !== "completed" && discoveryStatus !== "failed" && (
+                        <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                      )}
+                      <span className="text-xs font-bold uppercase tracking-wider">
+                        {discoveryStatus === "completed" 
+                          ? "✓ Search Completed" 
+                          : discoveryStatus === "failed" 
+                          ? "⚠ Search Failed" 
+                          : "Scanning Market..."}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[var(--muted-foreground)] font-medium leading-relaxed">
+                      {discoveryProgress}
+                    </p>
+                  </div>
+                )}
+                
+                <p className="text-[10px] text-[var(--muted-foreground)] text-center font-medium px-4">
+                  Powered by Kariyer.net, Techcareer, LinkedIn & Indeed
+                </p>
+              </div>
+            </div>
+
             <div className="glass p-6 rounded-2xl border-l-4 border-l-pink-500 shadow-lg shadow-pink-500/10 bg-gradient-to-br from-pink-500/5 to-transparent relative overflow-hidden">
               <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
                 <LayoutDashboard className="w-5 h-5 text-pink-500" />
@@ -215,20 +374,27 @@ export default function Dashboard() {
 
           {/* Job Feed */}
           <div className="flex-1 space-y-4">
-            <div className="flex items-center justify-between mb-4 glass px-6 py-4 rounded-2xl shadow-sm">
-              <h2 className="text-2xl font-bold flex items-center gap-3">
-                <Briefcase className="w-6 h-6 text-indigo-500" />
-                Opportunity Feed
-              </h2>
-              <span className="bg-[var(--secondary)] text-[var(--foreground)] px-4 py-1.5 rounded-full text-sm font-bold shadow-inner">
-                {filteredJobs.length} matches
-              </span>
+            <div className="flex flex-col mb-4 glass px-6 py-5 rounded-2xl shadow-sm border border-[var(--border)] relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold flex items-center gap-3">
+                  <Briefcase className="w-6 h-6 text-indigo-500" />
+                  Opportunity Feed
+                </h2>
+                <span className="bg-[var(--secondary)] text-[var(--foreground)] px-4 py-1.5 rounded-full text-sm font-bold shadow-inner">
+                  {filteredJobs.length} matches
+                </span>
+              </div>
+              {stats?.last_discovery && (
+                <p className="text-sm font-medium text-[var(--muted-foreground)] mt-3 pt-3 border-t border-[var(--border)] leading-relaxed">
+                  We analyzed <span className="text-indigo-400 font-extrabold">{stats.last_discovery.raw_scraped_count}</span> jobs from job boards and identified <span className="text-emerald-400 font-extrabold">{stats.last_discovery.strong_count}</span> perfect matches tailored specifically to your profile.
+                </p>
+              )}
             </div>
 
             <AnimatePresence mode="popLayout">
               {filteredJobs.length > 0 ? (
                 filteredJobs.map((job, index) => (
-                  <JobCard key={job.id} job={job} index={index} />
+                  <JobCard key={job.id} job={job} index={index} sessionId={sessionId} />
                 ))
               ) : (
                 <motion.div 
