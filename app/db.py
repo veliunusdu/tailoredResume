@@ -88,8 +88,16 @@ def init_db() -> None:
                     score       INTEGER,
                     verdict     TEXT,
                     reason      TEXT,
+                    tailored_resume TEXT,
+                    cover_letter TEXT,
                     PRIMARY KEY (id, user_id)
                 )
+            """)
+            cur.execute("""
+                ALTER TABLE jobs ADD COLUMN IF NOT EXISTS tailored_resume TEXT;
+            """)
+            cur.execute("""
+                ALTER TABLE jobs ADD COLUMN IF NOT EXISTS cover_letter TEXT;
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_jobs_user_score
@@ -194,6 +202,17 @@ def get_task_progress(task_id: str, user_id: str) -> dict | None:
             )
             row = cur.fetchone()
             return dict(row) if row else None
+
+
+def save_tailored_materials(job_id: str, user_id: str, tailored_resume: str, cover_letter: str | None = None) -> None:
+    """Save tailored resume and cover letter for a job."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE jobs
+                SET tailored_resume = %s, cover_letter = %s
+                WHERE id = %s AND user_id = %s
+            """, (tailored_resume, cover_letter, job_id, user_id))
 
 
 # ── Job Helpers ───────────────────────────────────────────────────────────────

@@ -17,6 +17,7 @@ import {
   X,
   RefreshCw,
   Loader2,
+  BarChart3,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { UserButton } from "@clerk/nextjs";
@@ -30,6 +31,7 @@ import { SearchConfigPanel } from "../components/SearchConfigPanel";
 import { apiGet, apiPost } from "@/lib/api";
 import { createClient } from "../utils/supabase/client";
 import { DiscoveryFunnel } from "../components/DiscoveryFunnel";
+import { AnalyticsPanel } from "../components/AnalyticsPanel";
 
 export const runtime = "edge";
 
@@ -46,6 +48,7 @@ export default function Dashboard() {
   const [activeSettingsTab, setActiveSettingsTab] = useState<"resume" | "search">("resume");
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"feed" | "analytics">("feed");
 
   const fetchData = async () => {
     try {
@@ -198,6 +201,32 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Tab Selection */}
+          <div className="glass p-1 rounded-xl flex items-center gap-1 mr-2">
+            <button
+              onClick={() => setActiveTab("feed")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === "feed"
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              <Briefcase className="w-3.5 h-3.5" />
+              Feed
+            </button>
+            <button
+              onClick={() => setActiveTab("analytics")}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === "analytics"
+                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              Analytics
+            </button>
+          </div>
+
           {/* Sync Jobs Button */}
           <button
             id="sync-jobs-btn"
@@ -294,7 +323,11 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto">
         <DiscoveryFunnel stats={stats} />
-        <div className="flex flex-col lg:flex-row gap-8">
+        
+        {activeTab === "analytics" ? (
+          <AnalyticsPanel jobs={jobs} stats={stats} />
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar / Filters */}
           <aside className="w-full lg:w-80 space-y-6">
             <div className="glass p-6 rounded-2xl shadow-xl shadow-black/5 relative overflow-hidden">
@@ -402,6 +435,7 @@ export default function Dashboard() {
             </AnimatePresence>
           </div>
         </div>
+      )}
       </main>
 
       {/* Settings Modal */}

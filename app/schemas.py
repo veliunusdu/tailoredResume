@@ -25,6 +25,8 @@ class JobBase(BaseModel):
     score: Optional[int] = None
     verdict: Optional[str] = None
     reason: Optional[str] = None
+    tailored_resume: Optional[str] = None
+    cover_letter: Optional[str] = None
 
     @field_validator("tags", mode="before")
     @classmethod

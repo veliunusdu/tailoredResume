@@ -11,6 +11,8 @@ export interface Job {
   score: number;
   verdict: string;
   reason: string;
+  tailored_resume?: string;
+  cover_letter?: string;
 }
 
 export interface Stats {

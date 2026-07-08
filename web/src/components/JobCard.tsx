@@ -6,11 +6,12 @@ import {
   Briefcase, ExternalLink, MapPin, DollarSign,
   Clock, BarChart3, CheckCircle2, Sparkles, Zap,
   Loader2, AlertCircle, AlertTriangle, XCircle, RefreshCw,
-  Activity, Target, MessageSquare, HelpCircle
+  Activity, Target, MessageSquare, HelpCircle, ArrowRightLeft
 } from "lucide-react";
 import { Job, KeywordAnalysis, InterviewQuestion } from "../types";
 import { useSafeAuth } from "../hooks/useSafeAuth";
 import { apiGet, apiPost } from "@/lib/api";
+import { ResumeDiffModal } from "./ResumeDiffModal";
 
 export function JobCard({ job, index }: { job: Job; index: number }) {
   const { getToken } = useSafeAuth();
@@ -27,6 +28,34 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
   const [questions, setQuestions]               = useState<InterviewQuestion[]>([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Resume Diff state
+  const [showDiffModal, setShowDiffModal] = useState(false);
+  const [baseResumeText, setBaseResumeText] = useState<string | null>(null);
+  const [loadingBaseResume, setLoadingBaseResume] = useState(false);
+
+  const handleOpenDiff = async () => {
+    if (baseResumeText) {
+      setShowDiffModal(true);
+      return;
+    }
+    setLoadingBaseResume(true);
+    setError(null);
+    try {
+      const resumes = await apiGet<any[]>("/resumes", getToken);
+      if (resumes && resumes.length > 0) {
+        const fullResume = await apiGet<any>(`/resumes/${resumes[0].id}`, getToken);
+        setBaseResumeText(fullResume.content);
+        setShowDiffModal(true);
+      } else {
+        setError("No base resume found. Please upload one in settings.");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to load base resume.");
+    } finally {
+      setLoadingBaseResume(false);
+    }
+  };
 
   const getScoreStyle = (score: number) => {
     if (score >= 7) return { text: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
@@ -130,11 +159,19 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
             <ExternalLink className="w-5 h-5" />
           </a>
 
-          <button onClick={handleTailor} disabled={loadingTailor}
-            className="flex items-center gap-2 bg-[var(--background)] border border-indigo-500/30 hover:border-indigo-500 text-indigo-500 px-4 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50">
-            {loadingTailor ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            Tailor
-          </button>
+          {job.tailored_resume ? (
+            <button onClick={handleOpenDiff} disabled={loadingBaseResume}
+              className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500 text-emerald-500 px-4 py-3 rounded-xl text-sm font-bold transition-all">
+              {loadingBaseResume ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
+              Diff Resume
+            </button>
+          ) : (
+            <button onClick={handleTailor} disabled={loadingTailor}
+              className="flex items-center gap-2 bg-[var(--background)] border border-indigo-500/30 hover:border-indigo-500 text-indigo-500 px-4 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50">
+              {loadingTailor ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              Tailor
+            </button>
+          )}
 
           <button onClick={handleFetchKeywords} disabled={loadingKeywords}
             className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all border ${showHeatmap ? "bg-indigo-500 text-white border-indigo-500" : "bg-[var(--background)] border-[var(--border)] text-[var(--foreground)] hover:border-indigo-500"}`}>
@@ -275,6 +312,15 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
           "{job.reason}"
         </p>
       </div>
+
+      <ResumeDiffModal
+        isOpen={showDiffModal}
+        onClose={() => setShowDiffModal(false)}
+        baseResume={baseResumeText || ""}
+        tailoredResume={job.tailored_resume || ""}
+        jobTitle={job.title}
+        company={job.company}
+      />
     </motion.div>
   );
 }
