@@ -1,0 +1,24 @@
+[
+  {
+    "title": "Junior Python Backend Developer",
+    "company": "TechCorp",
+    "description": "We are seeking an entry-level Python backend developer to join our engineering team. You will write clean code, work with Flask, build REST APIs, and gain hands-on experience with SQL databases. Remote positions available. Ideal for recent graduates or self-taught developers with basic coding projects in Python.",
+    "expected_verdict": "yes",
+    "min_score": 7
+  },
+  {
+    "title": "Senior Staff Machine Learning Architect",
+    "company": "DeepData AI",
+    "description": "Looking for a seasoned leader with 10+ years of production experience designing and deploying large scale AI systems. Must have a PhD in Computer Science or related quantitative field, deep knowledge of CUDA, LLM training loops, PyTorch, and a track record of leading teams of 15+ research scientists. Non-remote, on-site.",
+    "expected_verdict": "no",
+    "max_score": 3
+  },
+  {
+    "title": "React and TypeScript Frontend Intern",
+    "company": "Startup Hub",
+    "description": "Seeking a passionate frontend intern. You will help build responsive user interfaces using React, Tailwind CSS, and TypeScript. Some experience with basic coding is helpful. However, this is a purely client-facing frontend UI internship, no backend coding or Python is involved.",
+    "expected_verdict": "maybe",
+    "min_score": 3,
+    "max_score": 6
+  }
+]

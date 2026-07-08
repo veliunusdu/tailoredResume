@@ -12,6 +12,7 @@ import { Job, KeywordAnalysis, InterviewQuestion } from "../types";
 import { useSafeAuth } from "../hooks/useSafeAuth";
 import { apiGet, apiPost } from "@/lib/api";
 import { ResumeDiffModal } from "./ResumeDiffModal";
+import { createClient } from "../utils/supabase/client";
 
 export function JobCard({ job, index }: { job: Job; index: number }) {
   const { getToken } = useSafeAuth();
@@ -54,6 +55,123 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
       setError(err.message || "Failed to load base resume.");
     } finally {
       setLoadingBaseResume(false);
+    }
+  };
+
+  // Auto-Apply states
+  const [applying, setApplying] = useState(false);
+  const [applyStatus, setApplyStatus] = useState<string | null>(null);
+  const [applyAttemptId, setApplyAttemptId] = useState<string | null>(null);
+
+  const handleAutoApply = async (dryRun: boolean = true) => {
+    setApplying(true);
+    setApplyStatus("Queuing application...");
+    setError(null);
+    try {
+      const res = await apiPost<{ status: string; task_id: string; attempt_id: string }>(
+        `/jobs/${job.id}/apply?dry_run=${dryRun}`,
+        {},
+        getToken
+      );
+      setApplyAttemptId(res.attempt_id);
+      setApplyStatus("Browsing page...");
+
+      const supabase = createClient();
+      const channel = supabase
+        .channel(`apply-attempt-${res.attempt_id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "apply_attempts",
+            filter: `id=eq.${res.attempt_id}`,
+          },
+          (payload: any) => {
+            const data = payload.new;
+            if (data.status === "running") {
+              setApplyStatus("Filling application form...");
+            } else if (data.status === "success") {
+              setApplyStatus("✅ Applied successfully!");
+              setTimeout(() => {
+                setApplying(false);
+                setApplyStatus(null);
+              }, 4000);
+              channel.unsubscribe();
+            } else if (data.status === "failed") {
+              setApplyStatus(`❌ Failed: ${data.error_msg || "Unknown error"}`);
+              setTimeout(() => {
+                setApplying(false);
+                setApplyStatus(null);
+              }, 5000);
+              channel.unsubscribe();
+            } else if (data.status === "manual_required") {
+              setApplyStatus("⚠️ Manual Intervention Required");
+              setTimeout(() => {
+                setApplying(false);
+                setApplyStatus(null);
+              }, 5000);
+              channel.unsubscribe();
+            }
+          }
+        )
+        .subscribe();
+
+      // Fallback polling
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        if (attempts >= 20) { // 60s timeout
+          clearInterval(interval);
+          channel.unsubscribe();
+          setApplying(false);
+          setApplyStatus(null);
+          return;
+        }
+
+        try {
+          const attemptsList = await apiGet<any[]>(`/jobs/${job.id}/apply-attempts`, getToken);
+          const current = attemptsList.find(a => a.id === res.attempt_id);
+          if (current) {
+            if (current.status === "success") {
+              setApplyStatus("✅ Applied successfully!");
+              clearInterval(interval);
+              channel.unsubscribe();
+              setTimeout(() => {
+                setApplying(false);
+                setApplyStatus(null);
+              }, 4000);
+            } else if (current.status === "failed") {
+              setApplyStatus(`❌ Failed: ${current.error_msg || "Unknown error"}`);
+              clearInterval(interval);
+              channel.unsubscribe();
+              setTimeout(() => {
+                setApplying(false);
+                setApplyStatus(null);
+              }, 5000);
+            } else if (current.status === "manual_required") {
+              setApplyStatus("⚠️ Manual Intervention Required");
+              clearInterval(interval);
+              channel.unsubscribe();
+              setTimeout(() => {
+                setApplying(false);
+                setApplyStatus(null);
+              }, 5000);
+            }
+          }
+        } catch (e) {
+          console.error("Error fallback polling apply status:", e);
+        }
+      }, 3000);
+
+    } catch (err: any) {
+      console.error("Error starting auto-apply:", err);
+      setApplyStatus("Failed");
+      setError(err.message || "Failed to start auto-apply");
+      setTimeout(() => {
+        setApplying(false);
+        setApplyStatus(null);
+      }, 3000);
     }
   };
 
@@ -184,6 +302,40 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
             {loadingQuestions ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
             Questions
           </button>
+
+          {/* Confidence-Gated Auto-Apply Button */}
+          {applying ? (
+            <button disabled
+              className="flex items-center gap-2 bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 px-5 py-3 rounded-xl text-sm font-bold animate-pulse">
+              <Loader2 className="w-4 h-4 animate-spin animate-pulse" />
+              {applyStatus}
+            </button>
+          ) : job.score >= 8 ? (
+            <button onClick={() => handleAutoApply(true)}
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl text-sm font-bold transition-all shadow-md shadow-indigo-600/10"
+              title="Autonomous application (Dry Run mode)">
+              <Zap className="w-4 h-4 text-amber-400 animate-pulse" />
+              Auto-Apply
+            </button>
+          ) : job.score >= 4 ? (
+            <button onClick={() => {
+              if (confirm(`This is a potential match (score ${job.score}/10). Auto-apply might be less accurate. Proceed with Dry Run?`)) {
+                handleAutoApply(true);
+              }
+            }}
+              className="flex items-center gap-2 bg-[var(--secondary)] border border-[var(--border)] hover:border-indigo-500 text-[var(--foreground)] px-5 py-3 rounded-xl text-sm font-bold transition-all"
+              title="Requires manual confirmation due to lower score">
+              <Zap className="w-4 h-4 text-[var(--muted-foreground)]" />
+              Review & Apply
+            </button>
+          ) : (
+            <button disabled
+              className="flex items-center gap-2 bg-[var(--secondary)] text-[var(--muted-foreground)] px-5 py-3 rounded-xl text-sm font-bold border border-transparent opacity-40 cursor-not-allowed"
+              title="Auto-apply disabled: Match score too low">
+              <Zap className="w-4 h-4" />
+              Unsuitable
+            </button>
+          )}
 
           <a href={job.url} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white shadow-lg shadow-indigo-500/25 hover:-translate-y-0.5">

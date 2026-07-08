@@ -29,7 +29,25 @@ from app.strategies.base import ApplyPayload, ApplyResult
 from app.utils import minify_dom
 from app.resilience import send_webhook_alert, generate_selector_patch
 
+try:
+    from playwright.sync_api import Page
+except ImportError:
+    Page = None
+
 _logger = get_logger(__name__)
+
+if Page is not None:
+    _original_locator = Page.locator
+
+    def _patched_locator(self, selector: str, **kwargs):
+        from app.db import get_selector_patch
+        patch = get_selector_patch(selector)
+        if patch:
+            _logger.info("🩹 Playwright Self-Healing: Swapping selector '%s' with active patch '%s'", selector, patch)
+            return _original_locator(self, patch, **kwargs)
+        return _original_locator(self, selector, **kwargs)
+
+    Page.locator = _patched_locator
 
 MAX_APPLICATIONS_PER_RUN = 10
 APPLIED_LOG = DATA_DIR / "applications_log.txt"
@@ -298,9 +316,29 @@ def apply_to_job(user_id: str, job: dict, dry_run: bool = True, attempt_id: str 
                 minified = minify_dom(raw_html)
                 
                 import threading
+                import re
+
+                def extract_broken_selector(err_msg: str) -> str | None:
+                    # Match locator("...") or locator('...')
+                    match = re.search(r'locator\([\'"](.+?)[\'"]\)', err_msg)
+                    if match:
+                        return match.group(1)
+                    return None
+
                 # Offload AI analysis and webhook to a background thread
                 def _background_diagnosis(err_msg, plat, captured_dom):
                     suggestion = generate_selector_patch(err_msg, captured_dom)
+                    
+                    # Self-healing: extract and persist patch
+                    broken_sel = extract_broken_selector(err_msg)
+                    if broken_sel and suggestion and not suggestion.startswith("AI analysis failed") and not suggestion.startswith("No DOM"):
+                        from app.db import save_selector_patch
+                        try:
+                            save_selector_patch(broken_sel, suggestion)
+                            _logger.info("🩹 Self-Healing: Persisted selector patch '%s' -> '%s'", broken_sel, suggestion)
+                        except Exception as dbe:
+                            _logger.warning("⚠️ Failed to save selector patch to DB: %s", dbe)
+
                     if attempt_id:
                         from app.db import update_apply_status
                         # Pass all required args correctly to update_apply_status

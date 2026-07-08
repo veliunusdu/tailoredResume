@@ -166,6 +166,14 @@ def init_db() -> None:
                     updated_at DOUBLE PRECISION
                 )
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS selector_patches (
+                    broken_selector     TEXT PRIMARY KEY,
+                    patched_selector    TEXT NOT NULL,
+                    is_verified         BOOLEAN DEFAULT FALSE,
+                    created_at          DOUBLE PRECISION
+                )
+            """)
 
     _logger.info("✅ Database schema ready.")
 
@@ -213,6 +221,43 @@ def save_tailored_materials(job_id: str, user_id: str, tailored_resume: str, cov
                 SET tailored_resume = %s, cover_letter = %s
                 WHERE id = %s AND user_id = %s
             """, (tailored_resume, cover_letter, job_id, user_id))
+
+
+def get_selector_patch(broken_selector: str) -> str | None:
+    """Fetch a patched selector by its broken version."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT patched_selector FROM selector_patches WHERE broken_selector = %s",
+                (broken_selector,),
+            )
+            row = cur.fetchone()
+            return row[0] if row else None
+
+
+def save_selector_patch(broken_selector: str, patched_selector: str) -> None:
+    """Save or update a selector patch."""
+    now = time.time()
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO selector_patches (broken_selector, patched_selector, created_at)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (broken_selector) DO UPDATE
+                SET patched_selector = EXCLUDED.patched_selector,
+                    is_verified = FALSE,
+                    created_at = EXCLUDED.created_at
+            """, (broken_selector, patched_selector, now))
+
+
+def verify_selector_patch(broken_selector: str) -> None:
+    """Mark a selector patch as verified."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE selector_patches SET is_verified = TRUE WHERE broken_selector = %s",
+                (broken_selector,),
+            )
 
 
 # ── Job Helpers ───────────────────────────────────────────────────────────────
