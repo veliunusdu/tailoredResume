@@ -18,6 +18,14 @@ export interface Stats {
   strong: number;
   maybe: number;
   avg_score: number;
+  last_discovery?: {
+    raw_scraped_count: number;
+    filtered_count: number;
+    scored_count: number;
+    strong_count: number;
+    maybe_count: number;
+    timestamp: number;
+  };
 }
 
 export interface KeywordAnalysis {
