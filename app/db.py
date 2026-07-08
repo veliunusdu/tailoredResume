@@ -148,8 +148,52 @@ def init_db() -> None:
                     updated_at       DOUBLE PRECISION
                 )
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS task_progress (
+                    task_id    TEXT PRIMARY KEY,
+                    user_id    TEXT NOT NULL,
+                    status     TEXT NOT NULL,
+                    message    TEXT NOT NULL,
+                    progress   INTEGER DEFAULT 0,
+                    updated_at DOUBLE PRECISION
+                )
+            """)
 
     _logger.info("✅ Database schema ready.")
+
+
+def update_task_progress(
+    task_id: str,
+    user_id: str,
+    status: str,
+    message: str,
+    progress: int = 0,
+) -> None:
+    """Insert or update task progress in the task_progress table."""
+    now = time.time()
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO task_progress (task_id, user_id, status, message, progress, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (task_id) DO UPDATE
+                SET status = EXCLUDED.status,
+                    message = EXCLUDED.message,
+                    progress = EXCLUDED.progress,
+                    updated_at = EXCLUDED.updated_at
+            """, (task_id, user_id, status, message, progress, now))
+
+
+def get_task_progress(task_id: str, user_id: str) -> dict | None:
+    """Fetch task progress by task_id and user_id."""
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM task_progress WHERE task_id = %s AND user_id = %s",
+                (task_id, user_id),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
 
 
 # ── Job Helpers ───────────────────────────────────────────────────────────────

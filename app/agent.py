@@ -37,12 +37,18 @@ def _print_job(job: dict) -> None:
     print()
 
 
-def get_jobs(user_id: str) -> tuple[list[dict], list[dict]]:
+def get_jobs(user_id: str, task_id: str | None = None) -> tuple[list[dict], list[dict]]:
+    from app.db import update_task_progress
     _logger.info("Agent run started for user %s", user_id)
 
     # 1 & 2 — Fetch & Filter (Only if cache is stale)
     if should_fetch_jobs(user_id):
+        if task_id:
+            update_task_progress(task_id, user_id, "running", "Fetching raw job listings from configured boards...", 20)
         raw_jobs = fetch_jobs(user_id)
+        
+        if task_id:
+            update_task_progress(task_id, user_id, "running", "Filtering jobs against your exclusion rules...", 40)
         filtered = filter_jobs(raw_jobs, user_id)
         _logger.info("Fetched %s raw jobs, rule-filtered to %s", len(raw_jobs), len(filtered))
         
@@ -56,6 +62,8 @@ def get_jobs(user_id: str) -> tuple[list[dict], list[dict]]:
     _logger.info("Found %s unscored jobs in the database.", len(uncached_jobs))
 
     if uncached_jobs:
+        if task_id:
+            update_task_progress(task_id, user_id, "running", "Enriching job descriptions with web scrapers...", 60)
         _logger.info("Enriching descriptions for unscored jobs...")
         
         with tqdm(total=len(uncached_jobs), desc="Enriching Jobs", unit="job") as pbar:
@@ -65,6 +73,9 @@ def get_jobs(user_id: str) -> tuple[list[dict], list[dict]]:
                 except Exception as e:
                     _logger.error(f"Failed to enrich job %s: %s", job["id"], e)
                 pbar.update(1)
+
+        if task_id:
+            update_task_progress(task_id, user_id, "running", "AI evaluation: Scoring compatibility with Gemini...", 80)
 
         batches = [
             uncached_jobs[i : i + LLM_BATCH_SIZE]
@@ -82,6 +93,8 @@ def get_jobs(user_id: str) -> tuple[list[dict], list[dict]]:
                 pbar.update(1)
 
     # 4 - Retrieve and sort by score descending
+    if task_id:
+        update_task_progress(task_id, user_id, "running", "Retrieving and sorting job matches...", 95)
     all_scored = get_all_scored_jobs(user_id)
     strong = [j for j in all_scored if j.get("score", 0) >= SCORE_STRONG]
     maybe = [j for j in all_scored if SCORE_MAYBE <= j.get("score", 0) < SCORE_STRONG]

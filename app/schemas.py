@@ -40,11 +40,20 @@ class Job(JobBase):
     class Config:
         from_attributes = True
 
+class LastDiscoveryStats(BaseModel):
+    raw_scraped_count: int
+    filtered_count: int
+    scored_count: int
+    strong_count: int
+    maybe_count: int
+    timestamp: float
+
 class Stats(BaseModel):
     total: int
     strong: int
     maybe: int
     avg_score: float
+    last_discovery: Optional[LastDiscoveryStats] = None
 
 class ApplyResponse(BaseModel):
     status: str

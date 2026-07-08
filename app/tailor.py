@@ -116,12 +116,13 @@ def generate_cover_letter(job_description: str, base_resume: str, company: str, 
         return None
 
 
-def prepare_application(job: dict, user_id: str | None = None) -> dict:
+def prepare_application(job: dict, user_id: str | None = None, task_id: str | None = None) -> dict:
     """
     Generate tailored resume and cover letter for a job.
     Returns a dict with 'tailored_resume' and 'cover_letter' keys.
     When user_id is provided, fetches the resume from the DB.
     """
+    from app.db import update_task_progress
     company = job.get("company", "Company")
     title = job.get("title", "Role")
     job_id = job.get("id", "unknown_id")
@@ -133,14 +134,20 @@ def prepare_application(job: dict, user_id: str | None = None) -> dict:
         _logger.warning("No description available for job %s. Cannot tailor.", job_id)
         return result
 
+    if task_id and user_id:
+        update_task_progress(task_id, user_id, "running", "Selecting best base resume profile...", 40)
     resume_name, base_resume = get_best_base_resume(desc, user_id=user_id)
     if not base_resume:
         _logger.warning("No base resume found for user %s. Skipping tailoring.", user_id)
         return result
 
+    if task_id and user_id:
+        update_task_progress(task_id, user_id, "running", "Tailoring resume bullet points...", 65)
     _logger.info("Tailoring resume for %s at %s using profile '%s'...", title, company, resume_name)
     tailored_resume = generate_tailored_resume(desc, base_resume)
 
+    if task_id and user_id:
+        update_task_progress(task_id, user_id, "running", "Generating tailored cover letter...", 85)
     _logger.info("Generating cover letter for %s at %s...", title, company)
     cover_letter = generate_cover_letter(desc, base_resume, company, title)
 

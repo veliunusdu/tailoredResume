@@ -32,6 +32,8 @@ const isClerkConfigured = !!(
   pubKey.startsWith("pk_")
 );
 
+export const runtime = "edge";
+
 export default function RootLayout({
   children,
 }: Readonly<{

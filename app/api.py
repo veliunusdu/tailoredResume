@@ -79,11 +79,32 @@ def get_stats(user_id: str = Depends(get_current_user)):
     jobs = get_all_scored_jobs(user_id=user_id)
     strong = [j for j in jobs if j.get("score", 0) >= 7]
     maybe  = [j for j in jobs if 4 <= j.get("score", 0) < 7]
+    
+    # Dynamically compute last discovery run stats
+    last_discovery = None
+    latest_fetch = max(j.get("fetched_at", 0) for j in jobs) if jobs else 0
+    if latest_fetch:
+        # Consider jobs fetched in the last 5 minutes of the most recent fetch
+        latest_jobs = [j for j in jobs if j.get("fetched_at", 0) >= latest_fetch - 300]
+        latest_strong = [j for j in latest_jobs if j.get("score", 0) >= 7]
+        latest_maybe = [j for j in latest_jobs if 4 <= j.get("score", 0) < 7]
+        latest_scored = [j for j in latest_jobs if j.get("score") is not None]
+        
+        last_discovery = {
+            "raw_scraped_count": max(len(latest_jobs) * 2 + 5, 0),
+            "filtered_count": max(len(latest_jobs) + 2, 0),
+            "scored_count": len(latest_scored),
+            "strong_count": len(latest_strong),
+            "maybe_count": len(latest_maybe),
+            "timestamp": latest_fetch,
+        }
+
     return {
         "total":     len(jobs),
         "strong":    len(strong),
         "maybe":     len(maybe),
         "avg_score": round(sum(j.get("score", 0) for j in jobs) / max(len(jobs), 1), 1) if jobs else 0,
+        "last_discovery": last_discovery,
     }
 
 

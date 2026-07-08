@@ -8,16 +8,21 @@ from app.browser import apply_to_job
 
 _logger = get_logger(__name__)
 
-@celery_app.task(name="app.tasks.sync_jobs_task")
-def sync_jobs_task(user_id: str):
+@celery_app.task(bind=True, name="app.tasks.sync_jobs_task")
+def sync_jobs_task(self, user_id: str):
     """Run the job discovery and scoring agent pipeline for a single user."""
     from app.agent import get_jobs
+    from app.db import update_task_progress
     _logger.info(f"Running job sync pipeline for user {user_id}")
+    task_id = self.request.id
     try:
-        strong, maybe = get_jobs(user_id)
+        update_task_progress(task_id, user_id, "running", "Job sync started. Fetching new job listings...", 10)
+        strong, maybe = get_jobs(user_id, task_id=task_id)
+        update_task_progress(task_id, user_id, "success", f"Sync completed! Found {len(strong)} perfect matches.", 100)
         return {"strong": len(strong), "maybe": len(maybe)}
     except Exception as e:
         _logger.error(f"Error syncing jobs for {user_id}: {e}", exc_info=True)
+        update_task_progress(task_id, user_id, "failed", f"Failed: {str(e)}", 0)
         return {"error": str(e)}
 
 
@@ -61,17 +66,27 @@ def score_jobs_task(job_ids: list, user_id: str):
     return results
 
 
-@celery_app.task(name="app.tasks.prepare_application_task")
-def prepare_application_task(job_id: str, user_id: str):
+@celery_app.task(bind=True, name="app.tasks.prepare_application_task")
+def prepare_application_task(self, job_id: str, user_id: str):
     """Generate tailored resume and cover letter."""
+    from app.db import update_task_progress
     job = get_job_by_id(job_id, user_id=user_id)
+    task_id = self.request.id
     if not job:
         _logger.error(f"Job {job_id} not found for tailoring (user={user_id})")
+        update_task_progress(task_id, user_id, "failed", "Job not found", 0)
         return False
 
     _logger.info(f"Preparing application for job {job_id} (user={user_id})")
-    result = prepare_application(job, user_id=user_id)
-    return result
+    try:
+        update_task_progress(task_id, user_id, "running", "Analyzing job description...", 20)
+        result = prepare_application(job, user_id=user_id, task_id=task_id)
+        update_task_progress(task_id, user_id, "success", "Resume & cover letter tailored successfully!", 100)
+        return result
+    except Exception as e:
+        _logger.error(f"Error preparing application for job {job_id}: {e}", exc_info=True)
+        update_task_progress(task_id, user_id, "failed", f"Failed: {str(e)}", 0)
+        return False
 
 
 @celery_app.task(name="app.tasks.apply_to_job_task")

@@ -28,6 +28,10 @@ import { FilterButton } from "../components/FilterButton";
 import { ResumeUploader } from "../components/ResumeUploader";
 import { SearchConfigPanel } from "../components/SearchConfigPanel";
 import { apiGet, apiPost } from "@/lib/api";
+import { createClient } from "../utils/supabase/client";
+import { DiscoveryFunnel } from "../components/DiscoveryFunnel";
+
+export const runtime = "edge";
 
 export default function Dashboard() {
   const { getToken } = useSafeAuth();
@@ -43,31 +47,80 @@ export default function Dashboard() {
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
+  const fetchData = async () => {
+    try {
+      const [jobsData, statsData] = await Promise.all([
+        apiGet<Job[]>("/jobs", getToken),
+        apiGet<Stats>("/stats", getToken),
+      ]);
+      setJobs(jobsData);
+      setStats(statsData);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
+
   const handleSyncJobs = async () => {
     setSyncing(true);
     setSyncStatus("Sync queued...");
     try {
-      await apiPost("/jobs/sync", {}, getToken);
-      setSyncStatus("Syncing...");
+      const res = await apiPost<{ status: string; task_id: string }>("/jobs/sync", {}, getToken);
+      setSyncStatus("Starting sync...");
       
-      // Poll every 3 seconds for 24 seconds to refresh the dashboard
+      const supabase = createClient();
+      const channel = supabase
+        .channel(`sync-task-${res.task_id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "task_progress",
+            filter: `task_id=eq.${res.task_id}`,
+          },
+          async (payload: any) => {
+            const data = payload.new;
+            if (data.status === "running") {
+              setSyncStatus(data.message);
+            } else if (data.status === "success") {
+              setSyncStatus("✅ Sync completed successfully!");
+              setTimeout(() => {
+                setSyncing(false);
+                setSyncStatus(null);
+              }, 3000);
+              channel.unsubscribe();
+              await fetchData();
+            } else if (data.status === "failed") {
+              setSyncStatus(`❌ Sync failed: ${data.message || "Unknown error"}`);
+              setTimeout(() => {
+                setSyncing(false);
+                setSyncStatus(null);
+              }, 4000);
+              channel.unsubscribe();
+            }
+          }
+        )
+        .subscribe();
+
+      // Fallback polling in case WebSockets fail/disconnect
       let attempts = 0;
       const interval = setInterval(async () => {
         attempts++;
-        try {
-          const [jobsData, statsData] = await Promise.all([
-            apiGet<Job[]>("/jobs", getToken),
-            apiGet<Stats>("/stats", getToken),
-          ]);
-          setJobs(jobsData);
-          setStats(statsData);
-        } catch (e) {
-          console.error("Error polling sync data:", e);
-        }
-        if (attempts >= 8) {
+        if (attempts >= 15) { // 45 seconds max
           clearInterval(interval);
+          channel.unsubscribe();
           setSyncing(false);
           setSyncStatus(null);
+          return;
+        }
+        
+        try {
+          const statsRes = await apiGet<Stats>("/stats", getToken);
+          if (statsRes.total !== stats?.total) {
+            await fetchData();
+          }
+        } catch (e) {
+          console.error("Error fallback polling sync data:", e);
         }
       }, 3000);
     } catch (error) {
@@ -91,22 +144,11 @@ export default function Dashboard() {
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [jobsData, statsData] = await Promise.all([
-          apiGet<Job[]>("/jobs", getToken),
-          apiGet<Stats>("/stats", getToken),
-        ]);
-        setJobs(jobsData);
-        setStats(statsData);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
+    const initFetch = async () => {
+      await fetchData();
+      setLoading(false);
     };
-
-    fetchData();
+    initFetch();
   }, [getToken]);
 
   const filteredJobs = jobs.filter((job) => {
@@ -251,6 +293,7 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto">
+        <DiscoveryFunnel stats={stats} />
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar / Filters */}
           <aside className="w-full lg:w-80 space-y-6">

@@ -334,6 +334,8 @@ function ProfileContent() {
   );
 }
 
+export const runtime = "edge";
+
 export default function ProfilePage() {
   return (
     <Suspense fallback={

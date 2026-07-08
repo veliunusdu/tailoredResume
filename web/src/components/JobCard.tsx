@@ -9,8 +9,11 @@ import {
   Activity, Target, MessageSquare, HelpCircle
 } from "lucide-react";
 import { Job, KeywordAnalysis, InterviewQuestion } from "../types";
+import { useSafeAuth } from "../hooks/useSafeAuth";
+import { apiGet, apiPost } from "@/lib/api";
 
 export function JobCard({ job, index }: { job: Job; index: number }) {
+  const { getToken } = useSafeAuth();
   const [loadingTailor, setLoadingTailor] = useState(false);
   const [tailorMsg, setTailorMsg]         = useState<string | null>(null);
 
@@ -36,10 +39,10 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
     setLoadingTailor(true);
     setTailorMsg(null);
     try {
-      const res = await fetch(`http://localhost:8000/jobs/${job.id}/tailor`, { method: "POST" });
-      setTailorMsg(res.ok ? "✅ AI is tailoring your resume in the background…" : "❌ Failed to start tailoring.");
+      await apiPost(`/jobs/${job.id}/tailor`, {}, getToken);
+      setTailorMsg("✅ AI is tailoring your resume in the background…");
     } catch (_) {
-      setTailorMsg("❌ Network error.");
+      setTailorMsg("❌ Failed to start tailoring.");
     } finally {
       setLoadingTailor(false);
     }
@@ -53,21 +56,15 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
     setLoadingKeywords(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:8000/jobs/${job.id}/keywords`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.found.length === 0 && data.missing.length === 0) {
-          setError("No keywords could be extracted from this job description.");
-        } else {
-          setKeywords(data);
-          setShowHeatmap(true);
-        }
+      const data = await apiGet<KeywordAnalysis>(`/jobs/${job.id}/keywords`, getToken);
+      if (data.found.length === 0 && data.missing.length === 0) {
+        setError("No keywords could be extracted from this job description.");
       } else {
-        const errData = await res.json().catch(() => ({}));
-        setError(errData.detail || "Failed to analyze keywords. Your API key might be invalid.");
+        setKeywords(data);
+        setShowHeatmap(true);
       }
-    } catch (_) {
-      setError("Network error: Could not reach the API server.");
+    } catch (err: any) {
+      setError(err.message || "Failed to analyze keywords.");
     } finally {
       setLoadingKeywords(false);
     }
@@ -81,21 +78,15 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
     setLoadingQuestions(true);
     setError(null);
     try {
-      const res = await fetch(`http://localhost:8000/jobs/${job.id}/interview-questions`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.length === 0) {
-          setError("No interview questions could be generated for this job.");
-        } else {
-          setQuestions(data);
-          setShowQuestions(true);
-        }
+      const data = await apiGet<InterviewQuestion[]>(`/jobs/${job.id}/interview-questions`, getToken);
+      if (data.length === 0) {
+        setError("No interview questions could be generated for this job.");
       } else {
-        const errData = await res.json().catch(() => ({}));
-        setError(errData.detail || "Failed to generate questions. Check your API key.");
+        setQuestions(data);
+        setShowQuestions(true);
       }
-    } catch (_) {
-      setError("Network error: Could not reach the API server.");
+    } catch (err: any) {
+      setError(err.message || "Failed to generate questions.");
     } finally {
       setLoadingQuestions(false);
     }
