@@ -106,6 +106,15 @@ def init_db() -> None:
                 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS interview_questions JSONB;
             """)
             cur.execute("""
+                ALTER TABLE jobs ADD COLUMN IF NOT EXISTS required_skills JSONB;
+            """)
+            cur.execute("""
+                ALTER TABLE jobs ADD COLUMN IF NOT EXISTS missing_skills JSONB;
+            """)
+            cur.execute("""
+                ALTER TABLE jobs ADD COLUMN IF NOT EXISTS skill_match_score INTEGER;
+            """)
+            cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_jobs_user_score
                     ON jobs (user_id, score DESC)
             """)
@@ -228,6 +237,18 @@ def save_tailored_materials(job_id: str, user_id: str, tailored_resume: str, cov
                 SET tailored_resume = %s, cover_letter = %s, interview_questions = %s
                 WHERE id = %s AND user_id = %s
             """, (tailored_resume, cover_letter, json.dumps(interview_questions) if interview_questions else None, job_id, user_id))
+
+
+def save_skill_analysis(job_id: str, user_id: str, required_skills: list, missing_skills: list, match_score: int) -> None:
+    """Save the AI skill extraction and gap analysis to a job."""
+    import json
+    with get_connection(user_id) as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE jobs 
+                SET required_skills = %s, missing_skills = %s, skill_match_score = %s
+                WHERE id = %s AND user_id = %s
+            """, (json.dumps(required_skills), json.dumps(missing_skills), match_score, job_id, user_id))
 
 
 def get_selector_patch(broken_selector: str) -> str | None:

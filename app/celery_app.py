@@ -25,5 +25,14 @@ app.conf.update(
     task_acks_late=True,
 )
 
+from celery.schedules import crontab
+
+app.conf.beat_schedule = {
+    "bulk-ingest-every-4-hours": {
+        "task": "app.tasks.bulk_ingest_jobs_task",
+        "schedule": crontab(minute=0, hour="*/4"),
+    }
+}
+
 if __name__ == "__main__":
     app.start()

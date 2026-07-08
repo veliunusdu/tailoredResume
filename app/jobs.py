@@ -248,6 +248,15 @@ def _process_single_search(search: dict, blocked_sites: list[str]) -> list[dict]
     
     platforms = [p for p in platforms if p not in blocked_sites]
     
+    if "jsearch" in platforms:
+        from app.strategies.jsearch import JSearchStrategy
+        try:
+            strategy = JSearchStrategy()
+            j_jobs = strategy.fetch_jobs(term, location, limit)
+            search_results.extend(j_jobs)
+        except Exception as e:
+            _logger.error("JSearch fetching failed: %s", e)
+    
     if "remotive" in platforms:
         try:
             r_jobs = _fetch_jobs_remote(term, limit)
@@ -269,7 +278,7 @@ def _process_single_search(search: dict, blocked_sites: list[str]) -> list[dict]
         except Exception as e:
             _logger.error("Techcareer search failed: %s", e)
             
-    jobspy_sites = [p for p in platforms if p not in ("remotive", "kariyer", "techcareer")]
+    jobspy_sites = [p for p in platforms if p not in ("remotive", "kariyer", "techcareer", "jsearch")]
     if jobspy_sites:
         j_jobs = _fetch_jobs_jobspy(term, location, jobspy_sites, limit)
         search_results.extend(j_jobs)

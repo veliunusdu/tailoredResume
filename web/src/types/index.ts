@@ -14,6 +14,9 @@ export interface Job {
   tailored_resume?: string;
   cover_letter?: string;
   interview_questions?: InterviewQuestion[];
+  required_skills?: string[];
+  missing_skills?: string[];
+  skill_match_score?: number;
 }
 
 export interface Stats {

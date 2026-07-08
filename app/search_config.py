@@ -29,7 +29,7 @@ DEFAULT_LOCATIONS = [
     {"location": "Remote", "remote": True},
 ]
 
-DEFAULT_BOARDS = ["indeed", "linkedin", "glassdoor"]
+DEFAULT_BOARDS = ["jsearch", "indeed", "linkedin", "glassdoor"]
 
 DEFAULT_EXCLUDE_TITLES = [
     "senior director", "VP ", "vice president", "chief",

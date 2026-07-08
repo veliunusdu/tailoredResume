@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { UserButton } from "@clerk/nextjs";
+import Link from "next/link";
 import { useSafeAuth, isClerkConfigured } from "../hooks/useSafeAuth";
 import { Job, Stats } from "../types";
 import { JobCard } from "../components/JobCard";
@@ -225,6 +226,13 @@ export default function Dashboard() {
               <BarChart3 className="w-3.5 h-3.5" />
               Analytics
             </button>
+            <Link
+              href="/jobs"
+              className="px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+            >
+              <Target className="w-3.5 h-3.5 text-indigo-400" />
+              Skills Match
+            </Link>
           </div>
 
           {/* Sync Jobs Button */}

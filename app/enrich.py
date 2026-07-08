@@ -113,3 +113,9 @@ def enrich_description(url: str) -> str | None:
         _logger.warning("Enrichment failed for %s: %s", url, e)
         
     return None
+
+def clean_html_tags(raw_html: str) -> str:
+    """Utility to cleanly strip HTML and return text."""
+    if not raw_html:
+        return ""
+    return BeautifulSoup(raw_html, "html.parser").get_text(separator="\n", strip=True)

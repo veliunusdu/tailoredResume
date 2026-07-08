@@ -33,7 +33,7 @@ from app.tailor import prepare_application, get_best_base_resume
 from app.tasks import prepare_application_task, apply_to_job_task
 from app.llm import analyze_job_keywords, generate_interview_questions
 from app.celery_app import app as celery_app
-from app.schemas import Job, Stats, ApplyResponse, ApplyStatus, SessionResponse
+from app.schemas import Job, Stats, ApplyResponse, ApplyStatus, SessionResponse, JobPayload
 import uvicorn
 
 app = FastAPI(
@@ -66,6 +66,66 @@ def health():
 
 
 # ── Job Endpoints ─────────────────────────────────────────────────────────────
+
+@app.post("/v1/ingest/job-listing", status_code=201, tags=["Ingestion"])
+async def ingest_job_listing(
+    payload: JobPayload,
+    user_id: str = Depends(get_current_user)
+):
+    """Ingest a raw job description string directly into the database."""
+    if not payload.title or not payload.raw_content:
+        raise HTTPException(
+            status_code=400, 
+            detail="Title and raw content are required fields."
+        )
+    
+    # 1. Clean the incoming payload string
+    from app.enrich import clean_html_tags
+    cleaned_description = clean_html_tags(payload.raw_content)
+    
+    # 2. Structure data
+    normalized_job = {
+        "title": payload.title.strip(),
+        "company": payload.company_name.strip(),
+        "description": cleaned_description,
+        "site": payload.source_platform
+    }
+    
+    # 3. Commit
+    try:
+        from app.db import save_jobs, build_job_id
+        save_jobs([normalized_job], user_id=user_id)
+        job_id = build_job_id(normalized_job)
+        
+        # Trigger enrichment background task
+        from app.tasks import enrich_pipeline_task
+        enrich_pipeline_task.delay(job_id, user_id)
+        
+        return {"status": "success", "message": f"Job saved: {payload.title}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database insertion failed: {str(e)}")
+
+@app.post("/v1/ingest/job-listing-async", status_code=202, tags=["Ingestion"])
+async def ingest_job_listing_async(
+    payload: JobPayload,
+    user_id: str = Depends(get_current_user)
+):
+    """Ingest a raw job description string and process it via Celery."""
+    if not payload.title or not payload.raw_content:
+        raise HTTPException(
+            status_code=400, 
+            detail="Title and raw content are required fields."
+        )
+        
+    from app.tasks import process_raw_ingest
+    task = process_raw_ingest.delay(
+        title=payload.title.strip(),
+        company=payload.company_name.strip(),
+        raw_content=payload.raw_content,
+        source=payload.source_platform,
+        user_id=user_id
+    )
+    return {"status": "queued", "task_id": task.id, "message": f"Job processing queued: {payload.title}"}
 
 @app.get("/jobs", response_model=List[Job], tags=["Jobs"])
 def get_jobs(user_id: str = Depends(get_current_user)):

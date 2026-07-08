@@ -23,6 +23,7 @@ PROXY_URL       = os.getenv("PROXY_URL", "")
 GEMINI_API_KEY   = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL     = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 WEBHOOK_URL      = os.getenv("WEBHOOK_URL", "")
+JSEARCH_API_KEY  = os.getenv("JSEARCH_API_KEY", "")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR         = Path(__file__).resolve().parents[1]

@@ -43,6 +43,31 @@ def get_best_base_resume(job_description: str, user_id: str | None = None) -> tu
     return resume_files[0].name, resume_files[0].read_text(encoding="utf-8")
 
 
+def analyze_skill_gap(job_skills: list[str], base_resume: str) -> dict:
+    """
+    Compare the job's required skills array against the user's resume data.
+    Generates a match score and a list of missing skills.
+    """
+    if not job_skills:
+        return {"match_score": 100, "missing_skills": []}
+    
+    resume_lower = base_resume.lower()
+    missing_skills = []
+    
+    for skill in job_skills:
+        # Simple substring matching (can be upgraded to LLM/NLP matching later)
+        if skill.lower() not in resume_lower:
+            missing_skills.append(skill)
+            
+    found_count = len(job_skills) - len(missing_skills)
+    match_score = int((found_count / len(job_skills)) * 100)
+    
+    return {
+        "match_score": match_score,
+        "missing_skills": missing_skills
+    }
+
+
 def generate_tailored_resume(job_description: str, base_resume: str) -> str | None:
     """
     Tailor the base resume for the specific job description.

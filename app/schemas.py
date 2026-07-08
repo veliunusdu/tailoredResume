@@ -88,3 +88,9 @@ class SessionResponse(BaseModel):
     status: str
     platform: str
     message: Optional[str] = None
+
+class JobPayload(BaseModel):
+    title: str
+    company_name: str
+    raw_content: str
+    source_platform: Optional[str] = "Manual Ingest"

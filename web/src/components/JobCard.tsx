@@ -277,7 +277,50 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
             <span className="flex items-center gap-1.5 bg-[var(--background)] px-3 py-1.5 rounded-lg border border-[var(--border)]">
               <MapPin className="w-4 h-4 text-rose-400" /> {job.location || "Remote"}
             </span>
+            {job.salary && (
+              <span className="flex items-center gap-1.5 bg-[var(--background)] px-3 py-1.5 rounded-lg border border-[var(--border)] text-emerald-400">
+                <DollarSign className="w-4 h-4" /> {job.salary}
+              </span>
+            )}
           </div>
+          
+          {/* AI Extracted Skills & Match Score */}
+          {(job.required_skills && job.required_skills.length > 0) && (
+            <div className="mt-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-indigo-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)]">
+                  Tech Stack
+                </span>
+                {job.skill_match_score !== undefined && (
+                  <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-md ${
+                    job.skill_match_score >= 80 ? "bg-emerald-500/10 text-emerald-500" : 
+                    job.skill_match_score >= 50 ? "bg-amber-500/10 text-amber-500" : 
+                    "bg-rose-500/10 text-rose-500"
+                  }`}>
+                    {job.skill_match_score}% Match
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {job.required_skills.map((skill) => {
+                  const isMissing = job.missing_skills?.includes(skill);
+                  return (
+                    <span 
+                      key={skill} 
+                      className={`text-xs px-2.5 py-1 rounded-md border ${
+                        isMissing 
+                          ? "bg-rose-500/5 border-rose-500/20 text-rose-400" 
+                          : "bg-indigo-500/5 border-indigo-500/20 text-indigo-400"
+                      }`}
+                    >
+                      {skill}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-start md:justify-end shrink-0 mt-4 md:mt-0">

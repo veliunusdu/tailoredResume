@@ -63,6 +63,9 @@ class InterviewQuestion(BaseModel):
 class InterviewQuestionsList(BaseModel):
     questions: List[InterviewQuestion]
 
+class JobSkills(BaseModel):
+    skills: List[str] = Field(description="A clean array of technical hard skills (e.g., ['React', 'TypeScript', 'Go'])")
+
 _SYSTEM_PROMPT_SINGLE = """
 You are a job fit evaluator for a university student with the following profile:
 
@@ -106,6 +109,13 @@ CRITICAL INSTRUCTIONS:
    - Experience-based: Questions about specific projects in the Resume relevant to the JD.
    - Behavioral: Tailored to the company's likely culture based on the JD.
 2. For each question, provide a "focus" explanation (why you're asking it).
+""".strip()
+
+_SYSTEM_PROMPT_SKILL_EXTRACTION = """
+You are an expert technical skills extractor.
+Your task is to analyze the following JOB DESCRIPTION and extract the core required tech stack.
+Return a clean JSON array containing only technical hard skills (e.g., programming languages, frameworks, tools, databases, cloud platforms).
+Do not include soft skills like "Communication" or "Teamwork". Do not include generic terms like "Computer Science".
 """.strip()
 
 @retry(
@@ -226,4 +236,14 @@ def generate_interview_questions(job_description: str, base_resume: str) -> list
         return [q.model_dump() for q in result.questions]
     except Exception as exc:
         _logger.error("Interview questions LLM call failed: %s", exc)
+        return []
+
+def extract_job_skills(job_description: str) -> list[str]:
+    """Extract required tech stack from a job description into a clean JSON array."""
+    user_prompt = f"=== JOB DESCRIPTION ===\n{job_description[:LLM_MAX_DESC_CHARS * 2]}"
+    try:
+        result = _call_llm_structured(user_prompt, JobSkills, system_prompt=_SYSTEM_PROMPT_SKILL_EXTRACTION)
+        return result.skills
+    except Exception as exc:
+        _logger.error("Skill extraction LLM call failed: %s", exc)
         return []
