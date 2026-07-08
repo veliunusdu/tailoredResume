@@ -140,7 +140,7 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
         }
 
         try {
-          const attemptsList = await apiGet<any[]>(`/jobs/${job.id}/apply-attempts`, getToken);
+          const attemptsList = await apiGet<any[]>(`/jobs/${job.id}/apply-status`, getToken);
           const current = attemptsList.find(a => a.id === res.attempt_id);
           if (current) {
             if (current.status === "success") {
@@ -280,7 +280,7 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-start md:justify-end shrink-0 mt-4 md:mt-0">
           <a href={job.url} target="_blank" rel="noopener noreferrer"
             className="bg-[var(--secondary)] hover:bg-[var(--border)] text-[var(--foreground)] p-3 rounded-xl transition-all"
             title="View Original Posting">
@@ -366,7 +366,7 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
       {/* Status banners */}
       <AnimatePresence>
         {error && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+          <motion.div key="error-alert" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
             className="mb-4 p-3 rounded-xl flex items-center justify-between gap-2 text-sm font-medium bg-rose-500/10 text-rose-500 border border-rose-500/20">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -379,14 +379,14 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
         )}
 
         {tailorMsg && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+          <motion.div key="tailor-alert" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
             className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm font-medium ${tailorMsg.startsWith("✅") ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}>
             {tailorMsg}
           </motion.div>
         )}
 
         {showHeatmap && keywords && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+          <motion.div key="heatmap-panel" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
             className="mb-6 p-5 rounded-2xl bg-indigo-500/5 border border-indigo-500/20">
             <div className="flex items-center gap-2 mb-4">
               <Target className="w-4 h-4 text-indigo-500" />
@@ -424,7 +424,7 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
         )}
 
         {showQuestions && questions.length > 0 && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+          <motion.div key="questions-panel" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
             className="mb-6 p-5 rounded-2xl bg-amber-500/5 border border-amber-500/20">
             <div className="flex items-center gap-2 mb-4">
               <HelpCircle className="w-4 h-4 text-amber-500" />

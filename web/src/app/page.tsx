@@ -200,7 +200,7 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 mt-4 md:mt-0">
           {/* Tab Selection */}
           <div className="glass p-1 rounded-xl flex items-center gap-1 mr-2">
             <button

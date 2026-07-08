@@ -213,6 +213,13 @@ def apply_to_job(user_id: str, job: dict, dry_run: bool = True, attempt_id: str 
             _logger.info("🔍 Platform detected: %s", platform.upper())
 
             # ── Daily Rate Limit Check ──
+            import os, redis
+            REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+            try:
+                redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+            except Exception:
+                redis_client = None
+
             if redis_client:
                 import datetime
                 today = datetime.date.today().isoformat()
