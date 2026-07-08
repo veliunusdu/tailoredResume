@@ -82,23 +82,23 @@ def generate_tailored_resume(job_description: str, base_resume: str) -> str | No
         return None
 
 
-def generate_cover_letter(job_description: str, base_resume: str, company: str, title: str) -> str | None:
-    """Generate a modern, concise cover letter based on the resume and job."""
+def generate_cover_letter(job_description: str, resume_context: str, company: str, title: str) -> str | None:
+    """Generate a modern, concise cover letter based on the tailored resume and job."""
     prompt = f"""
     You are an expert career coach. Write a modern, concise, and highly effective cover letter for the position of {title} at {company}.
-    Use the candidate's BASE RESUME to highlight 1-2 key achievements that directly map to the JOB DESCRIPTION.
+    Use the candidate's TAILORED RESUME to highlight 1-2 key achievements that directly map to the JOB DESCRIPTION.
     
     CONSTRAINTS:
     1. Keep it under 300 words.
     2. Do not use generic buzzwords. Be specific about the impact.
-    3. No fabrication. Only use facts from the BASE RESUME.
+    3. No fabrication. Only use facts from the TAILORED RESUME.
     4. Output plain text or markdown without the [Your Name] placeholders if the name is in the resume.
 
     === JOB DESCRIPTION ===
     {job_description}
 
-    === BASE RESUME ===
-    {base_resume}
+    === TAILORED RESUME ===
+    {resume_context}
     """
 
     try:
@@ -128,7 +128,7 @@ def prepare_application(job: dict, user_id: str | None = None, task_id: str | No
     job_id = job.get("id", "unknown_id")
     desc = job.get("description", "")
 
-    result = {"tailored_resume": None, "cover_letter": None}
+    result = {"tailored_resume": None, "cover_letter": None, "interview_questions": None}
 
     if not desc:
         _logger.warning("No description available for job %s. Cannot tailor.", job_id)
@@ -149,10 +149,17 @@ def prepare_application(job: dict, user_id: str | None = None, task_id: str | No
     if task_id and user_id:
         update_task_progress(task_id, user_id, "running", "Generating tailored cover letter...", 85)
     _logger.info("Generating cover letter for %s at %s...", title, company)
-    cover_letter = generate_cover_letter(desc, base_resume, company, title)
+    cover_letter = generate_cover_letter(desc, tailored_resume or base_resume, company, title)
+
+    if task_id and user_id:
+        update_task_progress(task_id, user_id, "running", "Generating tailored interview questions...", 92)
+    _logger.info("Generating interview questions for %s at %s...", title, company)
+    from app.llm import generate_interview_questions
+    interview_questions = generate_interview_questions(desc, base_resume)
 
     result["tailored_resume"] = tailored_resume
     result["cover_letter"] = cover_letter
+    result["interview_questions"] = interview_questions
 
     # Optionally save to local disk in dev mode (when no user_id)
     if not user_id:

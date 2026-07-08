@@ -44,7 +44,7 @@ def save_resume(
 
 def get_resumes(user_id: str) -> list[dict]:
     """Return all resumes for a user (without the full content to keep payload small)."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute("""
                 SELECT id, user_id, filename, storage_path, created_at,
@@ -58,7 +58,7 @@ def get_resumes(user_id: str) -> list[dict]:
 
 def get_resume_by_id(resume_id: str, user_id: str) -> dict | None:
     """Return a single resume including its full content, scoped to this user."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 "SELECT * FROM resumes WHERE id = %s AND user_id = %s",
@@ -70,7 +70,7 @@ def get_resume_by_id(resume_id: str, user_id: str) -> dict | None:
 
 def delete_resume(resume_id: str, user_id: str) -> bool:
     """Delete a resume. Returns True if deleted, False if not found."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 "DELETE FROM resumes WHERE id = %s AND user_id = %s",
@@ -90,7 +90,7 @@ def get_best_resume(user_id: str, job_description: str) -> tuple[str | None, str
     If they have multiple, use the LLM to pick the most relevant one.
     Returns (filename, content) or (None, None) if no resumes exist.
     """
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 "SELECT id, filename, content FROM resumes WHERE user_id = %s ORDER BY created_at DESC",

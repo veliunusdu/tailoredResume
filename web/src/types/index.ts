@@ -13,6 +13,7 @@ export interface Job {
   reason: string;
   tailored_resume?: string;
   cover_letter?: string;
+  interview_questions?: InterviewQuestion[];
 }
 
 export interface Stats {

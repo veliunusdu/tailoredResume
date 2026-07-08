@@ -212,9 +212,26 @@ def apply_to_job(user_id: str, job: dict, dry_run: bool = True, attempt_id: str 
 
             _logger.info("🔍 Platform detected: %s", platform.upper())
 
+            # ── Daily Rate Limit Check ──
+            if redis_client:
+                import datetime
+                today = datetime.date.today().isoformat()
+                daily_key = f"apply_count:{user_id}:{platform}:{today}"
+                count = redis_client.get(daily_key)
+                if count and int(count) >= 10:
+                    msg = f"Daily application limit (10) reached for {platform}."
+                    _logger.warning(msg)
+                    if attempt_id:
+                        update_apply_status(attempt_id, "failed", user_id, platform, error_msg=msg)
+                    return False
+                
+                redis_client.incr(daily_key)
+                if not count: # Was newly created
+                    redis_client.expire(daily_key, 86400)
+
             # ── LinkedIn: try external ATS first, then Easy Apply ──
             if platform == "linkedin":
-                session_state = load_session("linkedin")
+                session_state = load_session("linkedin", user_id)
                 valid_session = session_state and _is_valid_session("linkedin", session_state)
 
                 if valid_session:
@@ -249,7 +266,7 @@ def apply_to_job(user_id: str, job: dict, dry_run: bool = True, attempt_id: str 
 
             # ── Load saved session for this platform if available ──
             elif platform not in ("greenhouse", "lever", "ashby"):
-                session_state = load_session(platform)
+                session_state = load_session(platform, user_id)
                 if session_state:
                     context.add_cookies(session_state.get("cookies", []))
                     _logger.info("🔑 Loaded %s session.", platform)

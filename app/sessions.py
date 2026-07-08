@@ -36,23 +36,41 @@ def session_exists(platform: str) -> bool:
     return _session_path(platform).exists()
 
 
-def save_session(platform: str, state: dict) -> None:
-    """Persist a Playwright storage_state dict to disk."""
+def save_session(platform: str, state: dict, user_id: str) -> None:
+    """Persist a Playwright storage_state dict to disk, encrypted with the user's data key."""
     path = _session_path(platform)
+    
+    # Encrypt state JSON
+    from app.crypto import encrypt_user_value
+    plaintext = json.dumps(state)
+    encrypted = encrypt_user_value(user_id, plaintext)
+    
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(state, f, indent=2)
+        f.write(encrypted)
     _logger.info("✅ Session saved for %s → %s", platform, path)
 
 
-def load_session(platform: str) -> dict | None:
+def load_session(platform: str, user_id: str) -> dict | None:
     """Load a saved Playwright storage_state dict from disk. Returns None if missing."""
     path = _session_path(platform)
     if not path.exists():
         _logger.warning("⚠️  No saved session for %s. Some sites may require login.", platform)
         return None
     try:
+        from app.crypto import decrypt_user_value
         with open(path, "r", encoding="utf-8") as f:
-            state = json.load(f)
+            raw = f.read()
+            
+        try:
+            # Try to decrypt and load
+            decrypted = decrypt_user_value(user_id, raw)
+            state = json.loads(decrypted)
+        except Exception:
+            # Fallback for unencrypted legacy sessions (will be encrypted on next save)
+            try:
+                state = json.loads(raw)
+            except json.JSONDecodeError:
+                raise ValueError("Session file corrupted or encryption key invalid")
         _logger.info("🔑 Loaded session for %s (%d cookies)", platform, len(state.get("cookies", [])))
         return state
     except Exception as e:
@@ -70,7 +88,7 @@ def delete_session(platform: str) -> bool:
     return False
 
 
-def record_session(platform: str, timeout_seconds: int = 300) -> dict:
+def record_session(platform: str, user_id: str, timeout_seconds: int = 300) -> dict:
     """
     Open a visible browser, navigate to the login page, and poll every 2 seconds
     for the platform's auth cookie. Saves the session as soon as login is detected.
@@ -161,7 +179,7 @@ def record_session(platform: str, timeout_seconds: int = 300) -> dict:
 
             browser.close()
 
-        save_session(platform, state)
+        save_session(platform, state, user_id)
 
         if not found or cookie_count == 0:
             return {

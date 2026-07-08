@@ -172,6 +172,9 @@ async def get_job_interview_questions(
     if not desc:
         raise HTTPException(status_code=400, detail="Job has no description to analyze.")
 
+    if job.get("interview_questions"):
+        return job["interview_questions"]
+
     from app.resumes import get_best_resume
     resume_name, base_resume = get_best_resume(user_id=user_id, job_description=desc)
     if not base_resume:
@@ -189,17 +192,59 @@ async def get_job_interview_questions(
 @app.post("/jobs/{job_id}/apply", response_model=ApplyResponse, tags=["Application"])
 async def apply_job(
     job_id: str = Path(..., description="The unique ID of the job"),
-    dry_run: bool = Query(True, description="If true, fills the form but does NOT click submit"),
+    dry_run: bool | None = Query(None, description="If true, fills the form but does NOT click submit"),
     user_id: str = Depends(get_current_user),
 ):
     """
     Queue and trigger an automated job application via Celery.
-    dry_run=true (default): fills the form but does NOT click submit.
-    dry_run=false: will actually submit — use with caution!
+    If dry_run is omitted, it defaults to the user's require_human_confirmation setting.
     """
     job = get_job_by_id(job_id, user_id=user_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+
+    if dry_run is None:
+        from app.search_config import get_search_config
+        cfg = get_search_config(user_id)
+        dry_run = bool(cfg.get("require_human_confirmation", 1))
+
+    # Dedup check: prevent queuing if an attempt is already queued or running
+    import redis
+    import os
+
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    try:
+        redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+    except Exception:
+        redis_client = None
+
+    if redis_client:
+        dedup_key = f"apply_dedup:{user_id}:{job_id}"
+        # Set atomic lock with 5-minute expiration
+        acquired = redis_client.set(dedup_key, "queued", nx=True, ex=300)
+        if not acquired:
+            recent_attempts = get_apply_attempts(job_id, user_id=user_id)
+            latest_id = recent_attempts[0].get("id") if recent_attempts else "unknown"
+            latest_status = redis_client.get(dedup_key) or "queued"
+            _logger.info("Job %s is already being processed (%s) for user %s. Dedup key exists.", job_id, latest_status, user_id)
+            return {
+                "status": latest_status,
+                "job_id": job_id,
+                "attempt_id": latest_id,
+                "task_id": "already_queued",
+            }
+    else:
+        recent_attempts = get_apply_attempts(job_id, user_id=user_id)
+        if recent_attempts:
+            latest = recent_attempts[0]
+            if latest.get("status") in ("queued", "running"):
+                _logger.info("Job %s is already %s for user %s. Skipping duplicate apply.", job_id, latest.get("status"), user_id)
+                return {
+                    "status": latest.get("status"),
+                    "job_id": job_id,
+                    "attempt_id": latest.get("id"),
+                    "task_id": "already_queued",
+                }
 
     attempt_id = queue_apply(job_id, user_id=user_id, dry_run=dry_run)
     task = apply_to_job_task.delay(job_id, attempt_id, dry_run, user_id)

@@ -83,7 +83,13 @@ def prepare_application_task(self, job_id: str, user_id: str):
         result = prepare_application(job, user_id=user_id, task_id=task_id)
         if result and result.get("tailored_resume"):
             from app.db import save_tailored_materials
-            save_tailored_materials(job_id, user_id, result["tailored_resume"], result.get("cover_letter"))
+            save_tailored_materials(
+                job_id, 
+                user_id, 
+                result["tailored_resume"], 
+                result.get("cover_letter"),
+                result.get("interview_questions")
+            )
         update_task_progress(task_id, user_id, "success", "Resume & cover letter tailored successfully!", 100)
         return result
     except Exception as e:

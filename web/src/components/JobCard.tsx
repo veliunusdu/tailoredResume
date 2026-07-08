@@ -6,12 +6,13 @@ import {
   Briefcase, ExternalLink, MapPin, DollarSign,
   Clock, BarChart3, CheckCircle2, Sparkles, Zap,
   Loader2, AlertCircle, AlertTriangle, XCircle, RefreshCw,
-  Activity, Target, MessageSquare, HelpCircle, ArrowRightLeft
+  Activity, Target, MessageSquare, HelpCircle, ArrowRightLeft, FileText
 } from "lucide-react";
 import { Job, KeywordAnalysis, InterviewQuestion } from "../types";
 import { useSafeAuth } from "../hooks/useSafeAuth";
 import { apiGet, apiPost } from "@/lib/api";
 import { ResumeDiffModal } from "./ResumeDiffModal";
+import { CoverLetterModal } from "./CoverLetterModal";
 import { createClient } from "../utils/supabase/client";
 
 export function JobCard({ job, index }: { job: Job; index: number }) {
@@ -25,13 +26,22 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
   const [loadingKeywords, setLoadingKeywords]   = useState(false);
 
   // Interview Questions state
-  const [showQuestions, setShowQuestions]       = useState(false);
-  const [questions, setQuestions]               = useState<InterviewQuestion[]>([]);
+  const [showQuestions, setShowQuestions]       = useState(!!(job.interview_questions && job.interview_questions.length > 0));
+  const [questions, setQuestions]               = useState<InterviewQuestion[]>(job.interview_questions || []);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+
+  useEffect(() => {
+    if (job.interview_questions && job.interview_questions.length > 0) {
+      setQuestions(job.interview_questions);
+      // Only auto-show if we didn't have them before, or let's just sync it
+      setShowQuestions(true);
+    }
+  }, [job.interview_questions]);
   const [error, setError] = useState<string | null>(null);
 
   // Resume Diff state
   const [showDiffModal, setShowDiffModal] = useState(false);
+  const [showCoverLetterModal, setShowCoverLetterModal] = useState(false);
   const [baseResumeText, setBaseResumeText] = useState<string | null>(null);
   const [loadingBaseResume, setLoadingBaseResume] = useState(false);
 
@@ -278,11 +288,20 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
           </a>
 
           {job.tailored_resume ? (
-            <button onClick={handleOpenDiff} disabled={loadingBaseResume}
-              className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500 text-emerald-500 px-4 py-3 rounded-xl text-sm font-bold transition-all">
-              {loadingBaseResume ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
-              Diff Resume
-            </button>
+            <>
+              <button onClick={handleOpenDiff} disabled={loadingBaseResume}
+                className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500 text-emerald-500 px-4 py-3 rounded-xl text-sm font-bold transition-all">
+                {loadingBaseResume ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
+                Diff Resume
+              </button>
+              {job.cover_letter && (
+                <button onClick={() => setShowCoverLetterModal(true)}
+                  className="flex items-center gap-2 bg-pink-500/10 border border-pink-500/30 hover:border-pink-500 text-pink-500 px-4 py-3 rounded-xl text-sm font-bold transition-all">
+                  <FileText className="w-4 h-4" />
+                  Cover Letter
+                </button>
+              )}
+            </>
           ) : (
             <button onClick={handleTailor} disabled={loadingTailor}
               className="flex items-center gap-2 bg-[var(--background)] border border-indigo-500/30 hover:border-indigo-500 text-indigo-500 px-4 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50">
@@ -473,6 +492,15 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
         jobTitle={job.title}
         company={job.company}
       />
+      {job.cover_letter && (
+        <CoverLetterModal
+          isOpen={showCoverLetterModal}
+          onClose={() => setShowCoverLetterModal(false)}
+          coverLetter={job.cover_letter}
+          jobTitle={job.title}
+          company={job.company}
+        />
+      )}
     </motion.div>
   );
 }

@@ -50,12 +50,15 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
 
 
 @contextmanager
-def get_connection() -> Generator:
+def get_connection(user_id: str | None = None) -> Generator:
     """Yield a psycopg2 connection from the pool, return it when done."""
     pool = _get_pool()
     conn = pool.getconn()
     conn.autocommit = False
     try:
+        if user_id:
+            with conn.cursor() as cur:
+                cur.execute("SET LOCAL app.current_user_id = %s", (user_id,))
         yield conn
         conn.commit()
     except Exception:
@@ -98,6 +101,9 @@ def init_db() -> None:
             """)
             cur.execute("""
                 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS cover_letter TEXT;
+            """)
+            cur.execute("""
+                ALTER TABLE jobs ADD COLUMN IF NOT EXISTS interview_questions JSONB;
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_jobs_user_score
@@ -187,7 +193,7 @@ def update_task_progress(
 ) -> None:
     """Insert or update task progress in the task_progress table."""
     now = time.time()
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 INSERT INTO task_progress (task_id, user_id, status, message, progress, updated_at)
@@ -202,7 +208,7 @@ def update_task_progress(
 
 def get_task_progress(task_id: str, user_id: str) -> dict | None:
     """Fetch task progress by task_id and user_id."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 "SELECT * FROM task_progress WHERE task_id = %s AND user_id = %s",
@@ -212,15 +218,16 @@ def get_task_progress(task_id: str, user_id: str) -> dict | None:
             return dict(row) if row else None
 
 
-def save_tailored_materials(job_id: str, user_id: str, tailored_resume: str, cover_letter: str | None = None) -> None:
-    """Save tailored resume and cover letter for a job."""
-    with get_connection() as conn:
+def save_tailored_materials(job_id: str, user_id: str, tailored_resume: str, cover_letter: str | None = None, interview_questions: list | None = None) -> None:
+    """Save the LLM-generated tailored resume, cover letter, and interview questions to a job."""
+    import json
+    with get_connection(user_id) as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                UPDATE jobs
-                SET tailored_resume = %s, cover_letter = %s
+                UPDATE jobs 
+                SET tailored_resume = %s, cover_letter = %s, interview_questions = %s
                 WHERE id = %s AND user_id = %s
-            """, (tailored_resume, cover_letter, job_id, user_id))
+            """, (tailored_resume, cover_letter, json.dumps(interview_questions) if interview_questions else None, job_id, user_id))
 
 
 def get_selector_patch(broken_selector: str) -> str | None:
@@ -288,7 +295,7 @@ def save_jobs(jobs: list[dict], user_id: str) -> int:
     """Insert-or-ignore normalised jobs. Returns count of newly inserted rows."""
     inserted = 0
     now = time.time()
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor() as cur:
             for job in jobs:
                 job_id = build_job_id(job)
@@ -322,7 +329,7 @@ def save_jobs(jobs: list[dict], user_id: str) -> int:
 
 def get_unscored_jobs(user_id: str) -> list[dict]:
     """Retrieve jobs that haven't been scored yet for this user."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 "SELECT * FROM jobs WHERE user_id = %s AND score IS NULL",
@@ -333,7 +340,7 @@ def get_unscored_jobs(user_id: str) -> list[dict]:
 
 def get_all_scored_jobs(user_id: str) -> list[dict]:
     """Retrieve all scored jobs for this user, sorted by score descending."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 "SELECT * FROM jobs WHERE user_id = %s AND score IS NOT NULL ORDER BY score DESC",
@@ -344,7 +351,7 @@ def get_all_scored_jobs(user_id: str) -> list[dict]:
 
 def get_job_by_id(job_id: str, user_id: str) -> dict | None:
     """Retrieve a single job by ID, scoped to this user."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 "SELECT * FROM jobs WHERE id = %s AND user_id = %s",
@@ -356,7 +363,7 @@ def get_job_by_id(job_id: str, user_id: str) -> dict | None:
 
 def save_score(job_id: str, result: dict, user_id: str) -> None:
     """Update a job with its LLM score."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 UPDATE jobs
@@ -372,7 +379,7 @@ def save_score(job_id: str, result: dict, user_id: str) -> None:
 
 def save_job_description(job_id: str, description: str, user_id: str) -> None:
     """Update a job's description after enrichment."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 "UPDATE jobs SET description = %s WHERE id = %s AND user_id = %s",
@@ -382,7 +389,7 @@ def save_job_description(job_id: str, description: str, user_id: str) -> None:
 
 def should_fetch_jobs(user_id: str) -> bool:
     """Check if we need to fetch new jobs based on TTL."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT MAX(fetched_at) as last_fetch FROM jobs WHERE user_id = %s",
@@ -401,7 +408,7 @@ def queue_apply(job_id: str, user_id: str, dry_run: bool = True) -> str:
     """Insert a new apply attempt with status='queued'. Returns the attempt ID."""
     attempt_id = str(uuid.uuid4())
     now = time.time()
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 INSERT INTO apply_attempts (id, user_id, job_id, status, dry_run, created_at)
@@ -422,7 +429,7 @@ def update_apply_status(
     """Update the status of an apply attempt."""
     now = time.time()
     applied_at = now if status in ("success", "failed", "manual_required") else None
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 UPDATE apply_attempts
@@ -435,7 +442,7 @@ def update_apply_status(
 
 def get_apply_attempts(job_id: str, user_id: str) -> list[dict]:
     """Return all apply attempts for a given job, newest first."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 "SELECT * FROM apply_attempts WHERE job_id = %s AND user_id = %s ORDER BY created_at DESC",
@@ -446,7 +453,7 @@ def get_apply_attempts(job_id: str, user_id: str) -> list[dict]:
 
 def get_all_apply_attempts(user_id: str) -> list[dict]:
     """Return all apply attempts for this user, newest first (last 100)."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 "SELECT * FROM apply_attempts WHERE user_id = %s ORDER BY created_at DESC LIMIT 100",
@@ -457,7 +464,7 @@ def get_all_apply_attempts(user_id: str) -> list[dict]:
 
 def get_apply_attempt(attempt_id: str, user_id: str) -> dict | None:
     """Return a single apply attempt by ID, scoped to this user."""
-    with get_connection() as conn:
+    with get_connection(user_id) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 "SELECT * FROM apply_attempts WHERE id = %s AND user_id = %s",
