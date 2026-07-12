@@ -1,24 +1,363 @@
 [
   {
+    "category": "backend",
     "title": "Junior Python Backend Developer",
     "company": "TechCorp",
     "description": "We are seeking an entry-level Python backend developer to join our engineering team. You will write clean code, work with Flask, build REST APIs, and gain hands-on experience with SQL databases. Remote positions available. Ideal for recent graduates or self-taught developers with basic coding projects in Python.",
     "expected_verdict": "yes",
-    "min_score": 7
+    "min_score": 7,
+    "difficulty": "easy"
   },
   {
+    "category": "senior",
     "title": "Senior Staff Machine Learning Architect",
     "company": "DeepData AI",
     "description": "Looking for a seasoned leader with 10+ years of production experience designing and deploying large scale AI systems. Must have a PhD in Computer Science or related quantitative field, deep knowledge of CUDA, LLM training loops, PyTorch, and a track record of leading teams of 15+ research scientists. Non-remote, on-site.",
     "expected_verdict": "no",
-    "max_score": 3
+    "max_score": 3,
+    "difficulty": "medium"
   },
   {
+    "category": "internship",
     "title": "React and TypeScript Frontend Intern",
     "company": "Startup Hub",
     "description": "Seeking a passionate frontend intern. You will help build responsive user interfaces using React, Tailwind CSS, and TypeScript. Some experience with basic coding is helpful. However, this is a purely client-facing frontend UI internship, no backend coding or Python is involved.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "easy"
+  },
+  {
+    "category": "data",
+    "title": "Junior Data Engineer",
+    "company": "Northstar Analytics",
+    "description": "Entry-level data engineer role focused on Python, SQL, ETL pipelines, and data quality checks. You will help maintain Airflow workflows, clean datasets, and support analytics teams. Remote-friendly and open to recent graduates.",
+    "expected_verdict": "yes",
+    "min_score": 7,
+    "difficulty": "hard"
+  },
+  {
+    "category": "devops",
+    "title": "Site Reliability Engineer I",
+    "company": "CloudTrail Systems",
+    "description": "We are hiring an SRE to help operate Kubernetes clusters, automate deployments, improve observability, and support incident response. This is an early-career role with mentoring and strong interest in Python scripting, Linux, and cloud infrastructure.",
+    "expected_verdict": "yes",
+    "min_score": 7,
+    "difficulty": "medium"
+  },
+  {
+    "category": "frontend",
+    "title": "Senior Frontend Engineering Manager",
+    "company": "PixelBoard",
+    "description": "Leadership role managing a frontend organization. Requires 8+ years of experience, prior people management, and deep ownership of design systems and roadmap execution. Not suitable for junior candidates.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "hard"
+  },
+  {
+    "category": "ml",
+    "title": "Machine Learning Engineer Intern",
+    "company": "VectorForge",
+    "description": "Internship focused on building data pipelines, training small ML models, and evaluating embeddings. Strong Python skills and curiosity about AI systems are important. Remote applicants welcome.",
+    "expected_verdict": "yes",
+    "min_score": 7,
+    "difficulty": "hard"
+  },
+  {
+    "category": "backend",
+    "title": "Backend Software Engineer",
+    "company": "ShipRight",
+    "description": "Join a small product team building APIs in Python and Flask with PostgreSQL, background jobs, and cloud deployments. We prefer candidates with shipped projects and a willingness to learn rather than years of experience. Remote-first.",
+    "expected_verdict": "yes",
+    "min_score": 7,
+    "difficulty": "easy"
+  },
+  {
+    "category": "negative",
+    "title": "Principal Platform Engineer",
+    "company": "Atlas Core",
+    "description": "Principal-level platform role requiring deep systems design experience, cross-team technical leadership, and 8+ years in production engineering. Not an entry-level opportunity.",
+    "expected_verdict": "no",
+    "max_score": 2,
+    "difficulty": "easy"
+  },
+  {
+    "category": "remote",
+    "title": "Remote Python Developer",
+    "company": "OpenNest",
+    "description": "A fully remote Python developer role working on REST APIs, job queues, and light data processing. Ideal for a junior engineer or strong intern with project experience.",
+    "expected_verdict": "yes",
+    "min_score": 7,
+    "difficulty": "medium"
+  },
+  {
+    "category": "devops",
+    "title": "Junior Site Reliability Engineer I",
+    "company": "CloudTrail Systems 923",
+    "description": "We are hiring an SRE to help operate Kubernetes clusters, automate deployments, improve observability, and support incident response. This is an early-career role with mentoring and strong interest in Python scripting, Linux, and cloud infrastructure.",
+    "expected_verdict": "yes",
+    "min_score": 7,
+    "difficulty": "medium"
+  },
+  {
+    "category": "frontend",
+    "title": "Staff Frontend Engineering Manager",
+    "company": "PixelBoard 506",
+    "description": "Leadership role managing a frontend organization. Requires 8+ years of experience, prior people management, and deep ownership of design systems and roadmap execution. Not suitable for junior candidates.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "hard"
+  },
+  {
+    "category": "internship",
+    "title": "Senior React and TypeScript Frontend Intern",
+    "company": "Startup Hub 591",
+    "description": "Seeking a passionate frontend intern. You will help build responsive user interfaces using React, Tailwind CSS, and TypeScript. Some experience with basic coding is helpful. However, this is a purely client-facing frontend UI internship, no backend coding or Python is involved.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "hard"
+  },
+  {
+    "category": "devops",
+    "title": "Staff Site Reliability Engineer I",
+    "company": "CloudTrail Systems 413",
+    "description": "We are hiring an SRE to help operate Kubernetes clusters, automate deployments, improve observability, and support incident response. This is an early-career role with mentoring and strong interest in Python scripting, Linux, and cloud infrastructure.",
+    "expected_verdict": "no",
+    "difficulty": "easy",
+    "max_score": 3
+  },
+  {
+    "category": "backend",
+    "title": "Lead Python Backend Developer",
+    "company": "TechCorp 971",
+    "description": "We are seeking an entry-level Python backend developer to join our engineering team. You will write clean code, work with Flask, build REST APIs, and gain hands-on experience with SQL databases. Remote positions available. Ideal for recent graduates or self-taught developers with basic coding projects in Python.",
     "expected_verdict": "maybe",
-    "min_score": 3,
-    "max_score": 6
+    "difficulty": "medium",
+    "min_score": 4,
+    "max_score": 7
+  },
+  {
+    "category": "frontend",
+    "title": "Lead Frontend Engineering Manager",
+    "company": "PixelBoard 319",
+    "description": "Leadership role managing a frontend organization. Requires 8+ years of experience, prior people management, and deep ownership of design systems and roadmap execution. Not suitable for junior candidates.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "hard"
+  },
+  {
+    "category": "backend",
+    "title": "Staff Backend Software Engineer",
+    "company": "ShipRight 181",
+    "description": "Join a small product team building APIs in Python and Flask with PostgreSQL, background jobs, and cloud deployments. We prefer candidates with shipped projects and a willingness to learn rather than years of experience. Remote-first.",
+    "expected_verdict": "no",
+    "difficulty": "easy",
+    "max_score": 3
+  },
+  {
+    "category": "ml",
+    "title": "Associate Machine Learning Engineer Intern",
+    "company": "VectorForge 398",
+    "description": "Internship focused on building data pipelines, training small ML models, and evaluating embeddings. Strong Python skills and curiosity about AI systems are important. Remote applicants welcome.",
+    "expected_verdict": "yes",
+    "min_score": 7,
+    "difficulty": "medium"
+  },
+  {
+    "category": "data",
+    "title": "Staff Data Engineer",
+    "company": "Northstar Analytics 112",
+    "description": "Entry-level data engineer role focused on Python, SQL, ETL pipelines, and data quality checks. You will help maintain Airflow workflows, clean datasets, and support analytics teams. Remote-friendly and open to recent graduates.",
+    "expected_verdict": "no",
+    "difficulty": "easy",
+    "max_score": 3
+  },
+  {
+    "category": "senior",
+    "title": "Staff Staff Machine Learning Architect",
+    "company": "DeepData AI 114",
+    "description": "Looking for a seasoned leader with 10+ years of production experience designing and deploying large scale AI systems. Must have a PhD in Computer Science or related quantitative field, deep knowledge of CUDA, LLM training loops, PyTorch, and a track record of leading teams of 15+ research scientists. Non-remote, on-site.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "medium"
+  },
+  {
+    "category": "frontend",
+    "title": "Junior Frontend Engineering Manager",
+    "company": "PixelBoard 259",
+    "description": "Leadership role managing a frontend organization. Requires 8+ years of experience, prior people management, and deep ownership of design systems and roadmap execution. Not suitable for junior candidates.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "hard"
+  },
+  {
+    "category": "ml",
+    "title": "Staff Machine Learning Engineer Intern",
+    "company": "VectorForge 459",
+    "description": "Internship focused on building data pipelines, training small ML models, and evaluating embeddings. Strong Python skills and curiosity about AI systems are important. Remote applicants welcome.",
+    "expected_verdict": "no",
+    "difficulty": "easy",
+    "max_score": 3
+  },
+  {
+    "category": "devops",
+    "title": "Lead Site Reliability Engineer I",
+    "company": "CloudTrail Systems 229",
+    "description": "We are hiring an SRE to help operate Kubernetes clusters, automate deployments, improve observability, and support incident response. This is an early-career role with mentoring and strong interest in Python scripting, Linux, and cloud infrastructure.",
+    "expected_verdict": "no",
+    "difficulty": "medium",
+    "max_score": 3
+  },
+  {
+    "category": "frontend",
+    "title": "Senior Frontend Engineering Manager",
+    "company": "PixelBoard 942",
+    "description": "Leadership role managing a frontend organization. Requires 8+ years of experience, prior people management, and deep ownership of design systems and roadmap execution. Not suitable for junior candidates.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "hard"
+  },
+  {
+    "category": "data",
+    "title": "Senior Data Engineer",
+    "company": "Northstar Analytics 239",
+    "description": "Entry-level data engineer role focused on Python, SQL, ETL pipelines, and data quality checks. You will help maintain Airflow workflows, clean datasets, and support analytics teams. Remote-friendly and open to recent graduates.",
+    "expected_verdict": "no",
+    "difficulty": "easy",
+    "max_score": 3
+  },
+  {
+    "category": "senior",
+    "title": "Associate Staff Machine Learning Architect",
+    "company": "DeepData AI 335",
+    "description": "Looking for a seasoned leader with 10+ years of production experience designing and deploying large scale AI systems. Must have a PhD in Computer Science or related quantitative field, deep knowledge of CUDA, LLM training loops, PyTorch, and a track record of leading teams of 15+ research scientists. Non-remote, on-site.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "medium"
+  },
+  {
+    "category": "ml",
+    "title": "Associate Machine Learning Engineer Intern",
+    "company": "VectorForge 245",
+    "description": "Internship focused on building data pipelines, training small ML models, and evaluating embeddings. Strong Python skills and curiosity about AI systems are important. Remote applicants welcome.",
+    "expected_verdict": "yes",
+    "min_score": 7,
+    "difficulty": "medium"
+  },
+  {
+    "category": "negative",
+    "title": "Senior Principal Platform Engineer",
+    "company": "Atlas Core 773",
+    "description": "Principal-level platform role requiring deep systems design experience, cross-team technical leadership, and 8+ years in production engineering. Not an entry-level opportunity.",
+    "expected_verdict": "no",
+    "max_score": 2,
+    "difficulty": "medium"
+  },
+  {
+    "category": "backend",
+    "title": "Associate Python Backend Developer",
+    "company": "TechCorp 527",
+    "description": "We are seeking an entry-level Python backend developer to join our engineering team. You will write clean code, work with Flask, build REST APIs, and gain hands-on experience with SQL databases. Remote positions available. Ideal for recent graduates or self-taught developers with basic coding projects in Python.",
+    "expected_verdict": "yes",
+    "min_score": 7,
+    "difficulty": "easy"
+  },
+  {
+    "category": "ml",
+    "title": "Staff Machine Learning Engineer Intern",
+    "company": "VectorForge 924",
+    "description": "Internship focused on building data pipelines, training small ML models, and evaluating embeddings. Strong Python skills and curiosity about AI systems are important. Remote applicants welcome.",
+    "expected_verdict": "no",
+    "difficulty": "easy",
+    "max_score": 3
+  },
+  {
+    "category": "internship",
+    "title": "Lead React and TypeScript Frontend Intern",
+    "company": "Startup Hub 432",
+    "description": "Seeking a passionate frontend intern. You will help build responsive user interfaces using React, Tailwind CSS, and TypeScript. Some experience with basic coding is helpful. However, this is a purely client-facing frontend UI internship, no backend coding or Python is involved.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "medium"
+  },
+  {
+    "category": "backend",
+    "title": "Lead Backend Software Engineer",
+    "company": "ShipRight 222",
+    "description": "Join a small product team building APIs in Python and Flask with PostgreSQL, background jobs, and cloud deployments. We prefer candidates with shipped projects and a willingness to learn rather than years of experience. Remote-first.",
+    "expected_verdict": "no",
+    "difficulty": "easy",
+    "max_score": 3
+  },
+  {
+    "category": "frontend",
+    "title": "Senior Frontend Engineering Manager",
+    "company": "PixelBoard 596",
+    "description": "Leadership role managing a frontend organization. Requires 8+ years of experience, prior people management, and deep ownership of design systems and roadmap execution. Not suitable for junior candidates.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "hard"
+  },
+  {
+    "category": "internship",
+    "title": "Junior React and TypeScript Frontend Intern",
+    "company": "Startup Hub 536",
+    "description": "Seeking a passionate frontend intern. You will help build responsive user interfaces using React, Tailwind CSS, and TypeScript. Some experience with basic coding is helpful. However, this is a purely client-facing frontend UI internship, no backend coding or Python is involved.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "hard"
+  },
+  {
+    "category": "data",
+    "title": "Junior Data Engineer",
+    "company": "Northstar Analytics 401",
+    "description": "Entry-level data engineer role focused on Python, SQL, ETL pipelines, and data quality checks. You will help maintain Airflow workflows, clean datasets, and support analytics teams. Remote-friendly and open to recent graduates.",
+    "expected_verdict": "yes",
+    "min_score": 7,
+    "difficulty": "medium"
+  },
+  {
+    "category": "devops",
+    "title": "Staff Site Reliability Engineer I",
+    "company": "CloudTrail Systems 747",
+    "description": "We are hiring an SRE to help operate Kubernetes clusters, automate deployments, improve observability, and support incident response. This is an early-career role with mentoring and strong interest in Python scripting, Linux, and cloud infrastructure.",
+    "expected_verdict": "no",
+    "difficulty": "easy",
+    "max_score": 3
+  },
+  {
+    "category": "backend",
+    "title": "Staff Python Backend Developer",
+    "company": "TechCorp 229",
+    "description": "We are seeking an entry-level Python backend developer to join our engineering team. You will write clean code, work with Flask, build REST APIs, and gain hands-on experience with SQL databases. Remote positions available. Ideal for recent graduates or self-taught developers with basic coding projects in Python.",
+    "expected_verdict": "no",
+    "difficulty": "easy",
+    "max_score": 3
+  },
+  {
+    "category": "ml",
+    "title": "Associate Machine Learning Engineer Intern",
+    "company": "VectorForge 634",
+    "description": "Internship focused on building data pipelines, training small ML models, and evaluating embeddings. Strong Python skills and curiosity about AI systems are important. Remote applicants welcome.",
+    "expected_verdict": "yes",
+    "min_score": 7,
+    "difficulty": "medium"
+  },
+  {
+    "category": "internship",
+    "title": "Senior React and TypeScript Frontend Intern",
+    "company": "Startup Hub 194",
+    "description": "Seeking a passionate frontend intern. You will help build responsive user interfaces using React, Tailwind CSS, and TypeScript. Some experience with basic coding is helpful. However, this is a purely client-facing frontend UI internship, no backend coding or Python is involved.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "medium"
+  },
+  {
+    "category": "frontend",
+    "title": "Staff Frontend Engineering Manager",
+    "company": "PixelBoard 103",
+    "description": "Leadership role managing a frontend organization. Requires 8+ years of experience, prior people management, and deep ownership of design systems and roadmap execution. Not suitable for junior candidates.",
+    "expected_verdict": "no",
+    "max_score": 3,
+    "difficulty": "medium"
   }
 ]

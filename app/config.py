@@ -41,7 +41,7 @@ JOB_API_URL      = os.getenv("JOB_API_URL", "https://remotive.com/api/remote-job
 JOB_CATEGORY     = os.getenv("JOB_CATEGORY", "software-dev")
 JOB_LIMIT        = int(os.getenv("JOB_LIMIT", "20"))
 JOBSPY_SEARCH_TERM = os.getenv("JOBSPY_SEARCH_TERM", "Software Engineer")
-JOBSPY_SITES       = os.getenv("JOBSPY_SITES", "linkedin, indeed, glassdoor").split(", ")
+JOBSPY_SITES       = os.getenv("JOBSPY_SITES", "linkedin, indeed, glassdoor, zip_recruiter, google").split(", ")
 JOBSPY_LOCATION    = os.getenv("JOBSPY_LOCATION", "Remote")
 JOBSPY_LIMIT       = int(os.getenv("JOBSPY_LIMIT", "20"))
 

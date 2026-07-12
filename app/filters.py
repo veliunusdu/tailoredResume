@@ -28,24 +28,26 @@ def _normalize(raw: dict) -> dict:
             "site":        "Remotive",
         }
     else:
-        # JobSpy normalization
+        # JobSpy normalization or other sources
         # Fields: title, company, location, job_url, date_posted, salary_source, description, site
         return {
             "title":       str(raw.get("title") or "Unknown Title"),
             "company":     str(raw.get("company") or "Unknown Company"),
             "location":    str(raw.get("location") or "Remote"),
-            "url":         str(raw.get("job_url") or ""),
+            "url":         str(raw.get("job_url") or raw.get("url") or ""),
             "date_posted": str(raw.get("date_posted") or ""),
-            "salary":      str(raw.get("salary_source") or "Not listed"),
-            "tags":        [], # Jobspy doesn't provide consistent tags
+            "salary":      str(raw.get("salary_source") or raw.get("salary") or "Not listed"),
+            "tags":        list(raw.get("tags") or []),
             "description": str(raw.get("description") or ""),
             "site":        str(raw.get("site") or "Web").title(),
         }
 
 
+
+from typing import Any
 from app.search_config import get_search_config
 
-def filter_jobs(jobs: list[dict], user_id: str) -> list[dict]:
+def filter_jobs(jobs: list[dict], user_id: str, collector: Any = None) -> list[dict]:
     """
     Apply rule-based filtering + field normalization.
     No AI involved — pure keyword matching.
@@ -74,6 +76,10 @@ def filter_jobs(jobs: list[dict], user_id: str) -> list[dict]:
         if not any(word in combined for word in ALLOWLIST):
             continue
 
-        filtered.append(_normalize(job))
+        norm_job = _normalize(job)
+        if collector:
+            collector.add_filtered(norm_job["site"], 1)
+        filtered.append(norm_job)
 
     return filtered
+

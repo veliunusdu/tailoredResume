@@ -39,20 +39,23 @@ def _print_job(job: dict) -> None:
 
 def get_jobs(user_id: str, task_id: str | None = None) -> tuple[list[dict], list[dict]]:
     from app.db import update_task_progress
+    from app.metrics import MetricsCollector
     _logger.info("Agent run started for user %s", user_id)
 
     # 1 & 2 — Fetch & Filter (Only if cache is stale)
     if should_fetch_jobs(user_id):
+        collector = MetricsCollector(user_id)
         if task_id:
             update_task_progress(task_id, user_id, "running", "Fetching raw job listings from configured boards...", 20)
-        raw_jobs = fetch_jobs(user_id)
+        raw_jobs = fetch_jobs(user_id, collector=collector)
         
         if task_id:
             update_task_progress(task_id, user_id, "running", "Filtering jobs against your exclusion rules...", 40)
-        filtered = filter_jobs(raw_jobs, user_id)
+        filtered = filter_jobs(raw_jobs, user_id, collector=collector)
         _logger.info("Fetched %s raw jobs, rule-filtered to %s", len(raw_jobs), len(filtered))
         
-        inserted = save_jobs(filtered, user_id=user_id)
+        inserted = save_jobs(filtered, user_id=user_id, collector=collector)
+        collector.save_to_db()
         _logger.info("Inserted %s new jobs into the database.", inserted)
     else:
         _logger.info("Recent fetch detected. Using jobs from the database.")

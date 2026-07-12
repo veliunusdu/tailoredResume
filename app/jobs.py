@@ -1,9 +1,11 @@
 import requests
 import re
 import json
+from html import unescape
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
+from urllib.parse import quote_plus
 
 try:
     from jobspy import scrape_jobs
@@ -28,6 +30,27 @@ from app.logger import get_logger
 from app.utils import retry
 
 _logger = get_logger(__name__)
+
+
+def _clean_text(value: str) -> str:
+    return re.sub(r"\s+", " ", unescape(value or "")).strip()
+
+
+def _slice_job_description(text: str, start_markers: list[str], end_markers: list[str], fallback_limit: int = 8000) -> str:
+    for start_marker in start_markers:
+        start_index = text.find(start_marker)
+        if start_index == -1:
+            continue
+
+        end_index = len(text)
+        for end_marker in end_markers:
+            candidate = text.find(end_marker, start_index + len(start_marker))
+            if candidate != -1:
+                end_index = min(end_index, candidate)
+
+        return _clean_text(text[start_index:end_index])[:fallback_limit]
+
+    return _clean_text(text)[:fallback_limit]
 
 
 @retry(
@@ -56,6 +79,34 @@ def _fetch_jobs_remote(search_term: str, limit: int) -> list[dict]:
     return data
 
 
+def _fetch_jobs_google_fallback(search_term: str, location: str, sites: list[str], limit: int, google_search_term: str) -> list[dict]:
+    if scrape_jobs is None:
+        _logger.warning("python-jobspy not installed, skipping Google fallback for %s.", sites)
+        return []
+
+    try:
+        jobs_df = scrape_jobs(
+            site_name="google",
+            search_term=search_term,
+            google_search_term=google_search_term,
+            location=location,
+            results_wanted=limit,
+            hours_old=72,
+        )
+
+        if jobs_df is None or jobs_df.empty:
+            return []
+
+        jobs = jobs_df.to_dict("records")
+        for job in jobs:
+            job["source_type"] = sites[0] if sites else "google"
+            job["site"] = sites[0] if sites else "google"
+        return jobs
+    except Exception as exc:
+        _logger.error("Google fallback fetch failed for %s: %s", sites, exc)
+        return []
+
+
 def _fetch_jobs_jobspy(search_term: str, location: str, sites: list[str], limit: int) -> list[dict]:
     if scrape_jobs is None:
         _logger.warning("python-jobspy not installed, skipping.")
@@ -79,6 +130,160 @@ def _fetch_jobs_jobspy(search_term: str, location: str, sites: list[str], limit:
         return jobs
     except Exception as e:
         _logger.error("JobSpy fetch failed for %s: %s", search_term, e)
+        return []
+
+
+def _fetch_jobs_weworkremotely(search_term: str, limit: int) -> list[dict]:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    }
+    search_url = f"https://weworkremotely.com/remote-jobs/search?term={quote_plus(search_term)}"
+
+    try:
+        response = requests.get(search_url, headers=headers, timeout=HTTP_TIMEOUT_SEC)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        job_links = []
+        for anchor in soup.select('a[href^="/remote-jobs/"]'):
+            href = anchor.get("href") or ""
+            if "/remote-jobs/search" in href or href.startswith("/remote-jobs/find-your-plan"):
+                continue
+            if href not in job_links:
+                job_links.append(href)
+
+        results: list[dict] = []
+        for href in job_links:
+            if len(results) >= limit:
+                break
+
+            job_url = f"https://weworkremotely.com{href}"
+            try:
+                detail_response = requests.get(job_url, headers=headers, timeout=HTTP_TIMEOUT_SEC)
+                detail_response.raise_for_status()
+            except Exception:
+                continue
+
+            detail_soup = BeautifulSoup(detail_response.text, "html.parser")
+            title = _clean_text(detail_soup.find("h1").get_text(" ", strip=True) if detail_soup.find("h1") else "")
+            company_anchor = detail_soup.select_one('a[href*="/company/"]')
+            company = _clean_text(company_anchor.get_text(" ", strip=True) if company_anchor else "")
+            page_text = detail_soup.get_text("\n", strip=True)
+            description = _slice_job_description(
+                page_text,
+                start_markers=["Posted", "About the job", "The Role:"],
+                end_markers=["Related Jobs", "Additional Links"],
+            )
+
+            if not title:
+                continue
+
+            results.append({
+                "title": title,
+                "company": company or "Unknown Company",
+                "location": "Remote",
+                "url": job_url,
+                "date_posted": "",
+                "site": "weworkremotely",
+                "source_type": "weworkremotely",
+                "description": description,
+                "tags": [],
+                "salary": "Not listed",
+            })
+
+        return results
+    except Exception as exc:
+        _logger.error("We Work Remotely fetch failed for %s: %s", search_term, exc)
+        return []
+
+
+def _fetch_jobs_builtin(search_term: str, location: str, limit: int) -> list[dict]:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    }
+    search_url = f"https://builtin.com/jobs/search/{quote_plus(search_term)}"
+
+    try:
+        response = requests.get(search_url, headers=headers, timeout=HTTP_TIMEOUT_SEC)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        job_urls: list[str] = []
+        for anchor in soup.select('a[href^="/job/"]'):
+            href = anchor.get("href") or ""
+            if href not in job_urls:
+                job_urls.append(href)
+
+        results: list[dict] = []
+        for href in job_urls:
+            if len(results) >= limit:
+                break
+
+            job_url = f"https://builtin.com{href}"
+            try:
+                detail_response = requests.get(job_url, headers=headers, timeout=HTTP_TIMEOUT_SEC)
+                detail_response.raise_for_status()
+            except Exception:
+                continue
+
+            detail_soup = BeautifulSoup(detail_response.text, "html.parser")
+            json_ld_tags = detail_soup.select('script[type="application/ld+json"]')
+            job_posting = None
+            for tag in json_ld_tags:
+                try:
+                    payload = json.loads(tag.get_text())
+                    graph = payload.get("@graph", []) if isinstance(payload, dict) else []
+                    for item in graph:
+                        if isinstance(item, dict) and item.get("@type") == "JobPosting":
+                            job_posting = item
+                            break
+                    if job_posting:
+                        break
+                except Exception:
+                    continue
+
+            title = _clean_text(job_posting.get("title", "") if job_posting else (detail_soup.find("h1").get_text(" ", strip=True) if detail_soup.find("h1") else ""))
+            company = "Unknown Company"
+            if job_posting:
+                hiring_org = job_posting.get("hiringOrganization") or {}
+                company = _clean_text(hiring_org.get("name", "Unknown Company"))
+
+            location_text = "Remote"
+            if job_posting:
+                locations = job_posting.get("jobLocation") or []
+                location_parts = []
+                for place in locations[:3]:
+                    address = (place or {}).get("address", {}) if isinstance(place, dict) else {}
+                    city = address.get("addressLocality")
+                    region = address.get("addressRegion")
+                    country = address.get("addressCountry")
+                    piece = ", ".join([part for part in [city, region, country] if part])
+                    if piece:
+                        location_parts.append(piece)
+                if location_parts:
+                    location_text = "; ".join(location_parts)
+
+            description = _clean_text(BeautifulSoup(job_posting.get("description", ""), "html.parser").get_text(" ", strip=True) if job_posting else detail_soup.get_text(" ", strip=True))
+
+            if not title:
+                continue
+
+            results.append({
+                "title": title,
+                "company": company,
+                "location": location_text or location,
+                "url": job_url,
+                "date_posted": str(job_posting.get("datePosted", "") if job_posting else ""),
+                "site": "builtin",
+                "source_type": "builtin",
+                "description": description,
+                "tags": [],
+                "salary": "Not listed",
+            })
+
+        return results
+    except Exception as exc:
+        _logger.error("Built In fetch failed for %s: %s", search_term, exc)
         return []
 
 def _fetch_jobs_kariyer(search_term: str, location: str, limit: int) -> list[dict]:
@@ -238,7 +443,10 @@ def _fetch_jobs_techcareer(search_term: str, location: str, limit: int) -> list[
         _logger.error("Techcareer.net fetch failed: %s", e)
         return results
 
-def _process_single_search(search: dict, blocked_sites: list[str]) -> list[dict]:
+from typing import Any
+from app.registry import SourceRegistry
+
+def _process_single_search(search: dict, blocked_sites: list[str], collector: Any = None) -> list[dict]:
     """Helper for parallel search execution."""
     search_results = []
     term = search.get("term", "")
@@ -248,44 +456,84 @@ def _process_single_search(search: dict, blocked_sites: list[str]) -> list[dict]
     
     platforms = [p for p in platforms if p not in blocked_sites]
     
-    if "jsearch" in platforms:
-        from app.strategies.jsearch import JSearchStrategy
-        try:
-            strategy = JSearchStrategy()
-            j_jobs = strategy.fetch_jobs(term, location, limit)
-            search_results.extend(j_jobs)
-        except Exception as e:
-            _logger.error("JSearch fetching failed: %s", e)
-    
-    if "remotive" in platforms:
-        try:
-            r_jobs = _fetch_jobs_remote(term, limit)
-            search_results.extend(r_jobs)
-        except Exception:
-            pass
-    
-    if "kariyer" in platforms:
-        try:
-            k_jobs = _fetch_jobs_kariyer(term, location, limit)
-            search_results.extend(k_jobs)
-        except Exception as e:
-            _logger.error("Kariyer search failed: %s", e)
+    jobspy_sites = []
 
-    if "techcareer" in platforms:
-        try:
-            t_jobs = _fetch_jobs_techcareer(term, location, limit)
-            search_results.extend(t_jobs)
-        except Exception as e:
-            _logger.error("Techcareer search failed: %s", e)
-            
-    jobspy_sites = [p for p in platforms if p not in ("remotive", "kariyer", "techcareer", "jsearch")]
+    for platform in platforms:
+        route = SourceRegistry.get_route(platform, has_stable_access=False)
+        jobs_fetched = []
+
+        if route == "direct":
+            if platform in ("weworkremotely", "wwr"):
+                try:
+                    jobs_fetched = _fetch_jobs_weworkremotely(term, limit)
+                except Exception as e:
+                    _logger.error("WWR search failed: %s", e)
+                    fbq = SourceRegistry.get_fallback_query(platform)
+                    if fbq:
+                        jobs_fetched = _fetch_jobs_google_fallback(term, location, [platform], limit, f"{fbq} {term}")
+
+            elif platform == "builtin":
+                try:
+                    jobs_fetched = _fetch_jobs_builtin(term, location, limit)
+                except Exception as e:
+                    _logger.error("Built In search failed: %s", e)
+                    fbq = SourceRegistry.get_fallback_query(platform)
+                    if fbq:
+                        jobs_fetched = _fetch_jobs_google_fallback(term, location, [platform], limit, f"{fbq} {term}")
+
+            elif platform == "remotive":
+                try:
+                    jobs_fetched = _fetch_jobs_remote(term, limit)
+                except Exception:
+                    pass
+
+            elif platform == "jsearch":
+                from app.strategies.jsearch import JSearchStrategy
+                try:
+                    strategy = JSearchStrategy()
+                    jobs_fetched = strategy.fetch_jobs(term, location, limit)
+                except Exception as e:
+                    _logger.error("JSearch fetching failed: %s", e)
+
+            elif platform == "kariyer":
+                try:
+                    jobs_fetched = _fetch_jobs_kariyer(term, location, limit)
+                except Exception as e:
+                    _logger.error("Kariyer search failed: %s", e)
+
+            elif platform == "techcareer":
+                try:
+                    jobs_fetched = _fetch_jobs_techcareer(term, location, limit)
+                except Exception as e:
+                    _logger.error("Techcareer search failed: %s", e)
+
+        elif route == "google_fallback":
+            fbq = SourceRegistry.get_fallback_query(platform)
+            if fbq:
+                jobs_fetched = _fetch_jobs_google_fallback(term, location, [platform], limit, f"{fbq} {term}")
+
+        elif route == "jobspy":
+            jobspy_sites.append(platform)
+
+        if jobs_fetched:
+            search_results.extend(jobs_fetched)
+            if collector:
+                collector.add_raw(platform, len(jobs_fetched))
+
     if jobspy_sites:
         j_jobs = _fetch_jobs_jobspy(term, location, jobspy_sites, limit)
-        search_results.extend(j_jobs)
+        if j_jobs:
+            search_results.extend(j_jobs)
+            if collector:
+                from collections import Counter
+                counts = Counter(j.get("site", "jobspy") for j in j_jobs)
+                for s_name, count in counts.items():
+                    collector.add_raw(s_name, count)
         
     return search_results
 
-def fetch_jobs(user_id: str) -> list[dict]:
+
+def fetch_jobs(user_id: str, collector: Any = None) -> list[dict]:
     """Fetch raw job listings from all configured sources in parallel with progress bar."""
     from app.config import load_sites
     
@@ -306,7 +554,7 @@ def fetch_jobs(user_id: str) -> list[dict]:
     _logger.info("Initializing search for %s combinations...", len(searches))
     
     with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {executor.submit(_process_single_search, s, blocked_sites): s for s in searches}
+        futures = {executor.submit(_process_single_search, s, blocked_sites, collector): s for s in searches}
         
         # tqdm progress bar for search combinations
         with tqdm(total=len(searches), desc="Searching Jobs", unit="comb") as pbar:

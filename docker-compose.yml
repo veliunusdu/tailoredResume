@@ -60,6 +60,23 @@ services:
         condition: service_started
     restart: always
 
+  # ── Celery Beat (Scheduler) ──────────────────────────────────────────────────
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/tailoredresume
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: always
+
   # ── Next.js Frontend ────────────────────────────────────────────────────────
   frontend:
     build:

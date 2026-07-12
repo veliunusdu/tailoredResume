@@ -124,6 +124,20 @@ def init_db() -> None:
             """)
 
             cur.execute("""
+                CREATE TABLE IF NOT EXISTS source_metrics (
+                    id                  SERIAL PRIMARY KEY,
+                    run_id              TEXT NOT NULL,
+                    user_id             TEXT NOT NULL,
+                    board               TEXT NOT NULL,
+                    raw_count           INTEGER DEFAULT 0,
+                    filtered_count      INTEGER DEFAULT 0,
+                    inserted_count      INTEGER DEFAULT 0,
+                    fetched_at          DOUBLE PRECISION NOT NULL
+                )
+            """)
+
+
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS apply_attempts (
                     id                  TEXT PRIMARY KEY,
                     user_id             TEXT NOT NULL,
@@ -312,7 +326,9 @@ def _row_to_job(row: dict) -> dict:
 
 # ── Job CRUD ──────────────────────────────────────────────────────────────────
 
-def save_jobs(jobs: list[dict], user_id: str) -> int:
+from typing import Any
+
+def save_jobs(jobs: list[dict], user_id: str, collector: Any = None) -> int:
     """Insert-or-ignore normalised jobs. Returns count of newly inserted rows."""
     inserted = 0
     now = time.time()
@@ -343,9 +359,12 @@ def save_jobs(jobs: list[dict], user_id: str) -> int:
                     ))
                     if cur.rowcount:
                         inserted += 1
+                        if collector:
+                            collector.add_inserted(job.get("site", "unknown"), 1)
                 except Exception as exc:
                     _logger.warning("Failed to insert job %s: %s", job_id, exc)
     return inserted
+
 
 
 def get_unscored_jobs(user_id: str) -> list[dict]:
@@ -511,3 +530,48 @@ def get_cached_llm_score(cache_key: str) -> dict | None:
 
 def set_cached_llm_score(cache_key: str, result: dict) -> None:
     pass
+
+def get_source_analytics(user_id: str) -> list[dict]:
+    """Retrieve yield, dedupe rates, and score distributions grouped by source board."""
+    query = """
+    WITH fetch_stats AS (
+        SELECT lower(board) as site_lower,
+               SUM(raw_count) as total_raw,
+               SUM(filtered_count) as total_filtered,
+               SUM(inserted_count) as total_inserted
+        FROM source_metrics
+        WHERE user_id = %s
+        GROUP BY lower(board)
+    ),
+    job_stats AS (
+        SELECT lower(site) as site_lower,
+               COUNT(*) as total_jobs,
+               COUNT(CASE WHEN score >= 7 THEN 1 END) as strong_matches,
+               COUNT(CASE WHEN score >= 4 AND score < 7 THEN 1 END) as maybe_matches,
+               COUNT(CASE WHEN score IS NOT NULL AND score < 4 THEN 1 END) as no_matches,
+               COUNT(score) as scored_count,
+               AVG(score) as avg_score
+        FROM jobs
+        WHERE user_id = %s
+        GROUP BY lower(site)
+    )
+    SELECT
+        COALESCE(j.site_lower, f.site_lower) as board,
+        COALESCE(f.total_raw, 0) as total_raw,
+        COALESCE(f.total_filtered, 0) as total_filtered,
+        COALESCE(f.total_inserted, 0) as total_inserted,
+        COALESCE(j.total_jobs, 0) as db_total,
+        COALESCE(j.scored_count, 0) as scored_count,
+        COALESCE(j.strong_matches, 0) as strong_matches,
+        COALESCE(j.maybe_matches, 0) as maybe_matches,
+        COALESCE(j.no_matches, 0) as no_matches,
+        COALESCE(j.avg_score, 0.0) as avg_score
+    FROM job_stats j
+    FULL OUTER JOIN fetch_stats f ON j.site_lower = f.site_lower
+    ORDER BY COALESCE(f.total_raw, 0) DESC, COALESCE(j.strong_matches, 0) DESC
+    """
+    with get_connection(user_id) as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(query, (user_id, user_id))
+            return [dict(row) for row in cur.fetchall()]
+

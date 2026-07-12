@@ -21,15 +21,41 @@ _logger = get_logger(__name__)
 DEFAULT_QUERIES = [
     {"query": "software engineer", "tier": 1},
     {"query": "backend engineer", "tier": 1},
+    {"query": "backend developer", "tier": 1},
     {"query": "full stack developer", "tier": 2},
+    {"query": "full stack engineer", "tier": 2},
     {"query": "python developer", "tier": 2},
+    {"query": "python engineer", "tier": 2},
+    {"query": "data engineer", "tier": 2},
+    {"query": "devops engineer", "tier": 2},
+    {"query": "site reliability engineer", "tier": 2},
+    {"query": "platform engineer", "tier": 2},
+    {"query": "cloud engineer", "tier": 2},
+    {"query": "machine learning engineer", "tier": 3},
+    {"query": "ml engineer", "tier": 3},
+    {"query": "ai engineer", "tier": 3},
+    {"query": "software developer", "tier": 3},
 ]
 
 DEFAULT_LOCATIONS = [
     {"location": "Remote", "remote": True},
+    {"location": "San Francisco, CA", "remote": False},
+    {"location": "Bay Area, CA", "remote": False},
 ]
 
-DEFAULT_BOARDS = ["jsearch", "indeed", "linkedin", "glassdoor"]
+DEFAULT_BOARDS = [
+    "jsearch",
+    "weworkremotely",
+    "builtin",
+    "dice",
+    "wellfound",
+    "flexjobs",
+    "indeed",
+    "linkedin",
+    "glassdoor",
+    "zip_recruiter",
+    "google",
+]
 
 DEFAULT_EXCLUDE_TITLES = [
     "senior director", "VP ", "vice president", "chief",
