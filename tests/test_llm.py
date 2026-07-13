@@ -36,7 +36,8 @@ def test_score_job_success(mocker):
     mocker.patch("app.llm._call_llm_structured", return_value=mock_eval)
     
     job = {"title": "Junior Python", "company": "Test", "location": "Remote", "tags": [], "description": ""}
-    result = score_job(job)
+    profile = {"seniority_levels": [], "exclude_titles": [], "locations": [], "resume_summary": ""}
+    result = score_job(job, profile)
     assert result["score"] == 9
     assert result["verdict"] == "yes"
 
@@ -45,7 +46,8 @@ def test_score_job_failure(mocker):
     mocker.patch("app.llm._call_llm_structured", side_effect=Exception("API Error"))
     
     job = {"title": "Junior Python", "company": "Test", "location": "Remote", "tags": [], "description": ""}
-    result = score_job(job)
+    profile = {"seniority_levels": [], "exclude_titles": [], "locations": [], "resume_summary": ""}
+    result = score_job(job, profile)
     assert result["verdict"] == "no"
     assert result["reason"] == "model unavailable"
 
@@ -61,7 +63,8 @@ def test_score_jobs_batch_success(mocker):
         {"title": "Job 1", "company": "C1", "location": "L1", "tags": [], "description": ""},
         {"title": "Job 2", "company": "C2", "location": "L2", "tags": [], "description": ""}
     ]
-    results = score_jobs_batch(jobs)
+    profile = {"seniority_levels": [], "exclude_titles": [], "locations": [], "resume_summary": ""}
+    results = score_jobs_batch(jobs, profile)
     assert len(results) == 2
     assert results[0]["score"] == 8
     assert results[1]["score"] == 2

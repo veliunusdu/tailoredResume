@@ -13,6 +13,12 @@ queries:
     tier: 1
   - query: "backend developer"
     tier: 1
+  - query: "site reliability engineer"
+    tier: 2
+  - query: "platform engineer"
+    tier: 2
+  - query: "cloud engineer"
+    tier: 2
   - query: "full stack developer"
     tier: 2
   - query: "full stack engineer"
@@ -60,6 +66,8 @@ locations:
     remote: false
   - location: "Remote"
     remote: true
+  - location: "Bay Area, CA"
+    remote: false
 
 # Location filtering -- accept/reject patterns for job location text
 location:
@@ -87,6 +95,11 @@ country: "USA"
 
 # JobSpy source boards (all available options shown)
 boards:
+  - weworkremotely
+  - builtin
+  - dice
+  - wellfound
+  - flexjobs
   - indeed
   - linkedin
   - glassdoor

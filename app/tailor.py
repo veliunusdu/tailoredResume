@@ -43,6 +43,31 @@ def get_best_base_resume(job_description: str, user_id: str | None = None) -> tu
     return resume_files[0].name, resume_files[0].read_text(encoding="utf-8")
 
 
+def analyze_skill_gap(job_skills: list[str], base_resume: str) -> dict:
+    """
+    Compare the job's required skills array against the user's resume data.
+    Generates a match score and a list of missing skills.
+    """
+    if not job_skills:
+        return {"match_score": 100, "missing_skills": []}
+    
+    resume_lower = base_resume.lower()
+    missing_skills = []
+    
+    for skill in job_skills:
+        # Simple substring matching (can be upgraded to LLM/NLP matching later)
+        if skill.lower() not in resume_lower:
+            missing_skills.append(skill)
+            
+    found_count = len(job_skills) - len(missing_skills)
+    match_score = int((found_count / len(job_skills)) * 100)
+    
+    return {
+        "match_score": match_score,
+        "missing_skills": missing_skills
+    }
+
+
 def generate_tailored_resume(job_description: str, base_resume: str) -> str | None:
     """
     Tailor the base resume for the specific job description.
@@ -50,7 +75,7 @@ def generate_tailored_resume(job_description: str, base_resume: str) -> str | No
     """
     prompt = f"""
     You are an expert technical recruiter and resume writer.
-    I will provide you with a BASE RESUME and a JOB DESCRIPTION.
+    I will provide you with a BASE RESUME (which may be structured JSON or plain text) and a JOB DESCRIPTION.
     Your task is to tailor the BASE RESUME to match the JOB DESCRIPTION as closely as possible.
 
     CRITICAL CONSTRAINTS (FACTUAL PRESERVATION):
@@ -82,10 +107,11 @@ def generate_tailored_resume(job_description: str, base_resume: str) -> str | No
         return None
 
 
-def generate_cover_letter(job_description: str, resume_context: str, company: str, title: str) -> str | None:
+def generate_cover_letter(job_description: str, resume_context: str, company: str, title: str, tone_style: str = "Professional") -> str | None:
     """Generate a modern, concise cover letter based on the tailored resume and job."""
     prompt = f"""
     You are an expert career coach. Write a modern, concise, and highly effective cover letter for the position of {title} at {company}.
+    The tone of the cover letter should be: {tone_style}.
     Use the candidate's TAILORED RESUME to highlight 1-2 key achievements that directly map to the JOB DESCRIPTION.
     
     CONSTRAINTS:
@@ -116,7 +142,7 @@ def generate_cover_letter(job_description: str, resume_context: str, company: st
         return None
 
 
-def prepare_application(job: dict, user_id: str | None = None, task_id: str | None = None) -> dict:
+def prepare_application(job: dict, user_id: str | None = None, task_id: str | None = None, tone_style: str = "Professional") -> dict:
     """
     Generate tailored resume and cover letter for a job.
     Returns a dict with 'tailored_resume' and 'cover_letter' keys.
@@ -142,20 +168,28 @@ def prepare_application(job: dict, user_id: str | None = None, task_id: str | No
         return result
 
     if task_id and user_id:
-        update_task_progress(task_id, user_id, "running", "Tailoring resume bullet points...", 65)
-    _logger.info("Tailoring resume for %s at %s using profile '%s'...", title, company, resume_name)
-    tailored_resume = generate_tailored_resume(desc, base_resume)
+        update_task_progress(task_id, user_id, "running", "Generating tailored materials concurrently...", 65)
+    _logger.info("Tailoring materials concurrently for %s at %s...", title, company)
 
-    if task_id and user_id:
-        update_task_progress(task_id, user_id, "running", "Generating tailored cover letter...", 85)
-    _logger.info("Generating cover letter for %s at %s...", title, company)
-    cover_letter = generate_cover_letter(desc, tailored_resume or base_resume, company, title)
-
-    if task_id and user_id:
-        update_task_progress(task_id, user_id, "running", "Generating tailored interview questions...", 92)
-    _logger.info("Generating interview questions for %s at %s...", title, company)
     from app.llm import generate_interview_questions
-    interview_questions = generate_interview_questions(desc, base_resume)
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        future_resume = executor.submit(generate_tailored_resume, desc, base_resume)
+        future_cover = executor.submit(generate_cover_letter, desc, base_resume, company, title, tone_style)
+        future_interview = executor.submit(generate_interview_questions, desc, base_resume)
+
+        tailored_resume = future_resume.result()
+        if task_id and user_id:
+            update_task_progress(task_id, user_id, "running", "Generated tailored resume...", 75)
+            
+        cover_letter = future_cover.result()
+        if task_id and user_id:
+            update_task_progress(task_id, user_id, "running", "Generated cover letter...", 85)
+            
+        interview_questions = future_interview.result()
+        if task_id and user_id:
+            update_task_progress(task_id, user_id, "running", "Generated interview questions...", 92)
 
     result["tailored_resume"] = tailored_resume
     result["cover_letter"] = cover_letter

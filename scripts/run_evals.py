@@ -33,11 +33,19 @@ def run_evaluations():
 
     passed_count = 0
     total_count = len(cases)
+    category_totals = {}
+    category_passed = {}
+    difficulty_totals = {}
+    difficulty_passed = {}
 
     print(f"Loaded {total_count} test cases from dataset.")
     print("-" * 60)
 
     for i, case in enumerate(cases):
+        category = case.get("category", "uncategorized")
+        difficulty = case.get("difficulty", "medium")
+        category_totals[category] = category_totals.get(category, 0) + 1
+        difficulty_totals[difficulty] = difficulty_totals.get(difficulty, 0) + 1
         print(f"\n[Test Case {i+1}] {case['title']} @ {case['company']}")
         
         # Build job representation
@@ -60,7 +68,14 @@ def run_evaluations():
                 "reason": "Simulated mock response."
             }
         else:
-            actual = score_job(job)
+            # Provide a comprehensive test profile so the LLM doesn't cap the score due to missing resume.
+            test_profile = case.get("profile", {
+                "seniority_levels": ["Junior", "Entry-level", "Intern"],
+                "locations": ["Remote"],
+                "exclude_titles": ["Frontend", "React", "Manager", "Architect", "Senior", "Staff", "Principal"],
+                "resume_summary": "Entry-level Software Engineer with experience in Python, Backend Development, Data Engineering, and Machine Learning. Proficient in Flask, SQL, PyTorch, and Data Analytics. Looking for junior, internship, or entry-level remote opportunities."
+            })
+            actual = score_job(job, profile=test_profile)
 
         print(f"  Expected: Verdict={case['expected_verdict']} (Score range: min={case.get('min_score', 'N/A')}, max={case.get('max_score', 'N/A')})")
         print(f"  Actual:   Verdict={actual['verdict']} (Score={actual['score']})")
@@ -78,6 +93,8 @@ def run_evaluations():
         if verdict_ok and score_ok:
             print("  ✅ PASS")
             passed_count += 1
+            category_passed[category] = category_passed.get(category, 0) + 1
+            difficulty_passed[difficulty] = difficulty_passed.get(difficulty, 0) + 1
         else:
             print("  ❌ FAIL")
             if not verdict_ok:
@@ -88,6 +105,19 @@ def run_evaluations():
     accuracy = (passed_count / total_count) * 100
     print("\n" + "=" * 60)
     print(f"Suite Summary: {passed_count}/{total_count} passed ({accuracy:.1f}% accuracy)")
+    print("Category breakdown:")
+    for category in sorted(category_totals):
+        passed = category_passed.get(category, 0)
+        total = category_totals[category]
+        category_accuracy = (passed / total) * 100
+        print(f"  - {category}: {passed}/{total} passed ({category_accuracy:.1f}%)")
+        
+    print("\nDifficulty breakdown:")
+    for difficulty in sorted(difficulty_totals):
+        passed = difficulty_passed.get(difficulty, 0)
+        total = difficulty_totals[difficulty]
+        difficulty_accuracy = (passed / total) * 100
+        print(f"  - {difficulty}: {passed}/{total} passed ({difficulty_accuracy:.1f}%)")
     print("=" * 60)
 
     # We require 100% accuracy for mock, and at least 66% (2/3) for actual LLM run to pass

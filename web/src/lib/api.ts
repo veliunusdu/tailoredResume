@@ -9,7 +9,12 @@
  *   const jobs = await apiFetch("/jobs");
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// In the browser, route via Next.js proxy to avoid CORS/cross-origin issues.
+// In server-side contexts, use the direct URL.
+const API_URL =
+  typeof window !== "undefined"
+    ? "/api/backend"
+    : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 /**
  * Fetch with automatic Clerk JWT attachment.

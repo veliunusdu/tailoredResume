@@ -33,7 +33,7 @@ from app.tailor import prepare_application, get_best_base_resume
 from app.tasks import prepare_application_task, apply_to_job_task
 from app.llm import analyze_job_keywords, generate_interview_questions
 from app.celery_app import app as celery_app
-from app.schemas import Job, Stats, ApplyResponse, ApplyStatus, SessionResponse
+from app.schemas import Job, Stats, ApplyResponse, ApplyStatus, SessionResponse, JobPayload, TailorPayload
 import uvicorn
 
 app = FastAPI(
@@ -54,7 +54,13 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     """Ensure the DB schema is up-to-date when the server starts."""
-    init_db()
+    try:
+        init_db()
+        import logging
+        logging.getLogger("app.api").info("✅ Database schema initialised.")
+    except Exception as exc:
+        import logging
+        logging.getLogger("app.api").error("❌ DB init failed on startup: %s", exc, exc_info=True)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
@@ -66,6 +72,66 @@ def health():
 
 
 # ── Job Endpoints ─────────────────────────────────────────────────────────────
+
+@app.post("/v1/ingest/job-listing", status_code=201, tags=["Ingestion"])
+async def ingest_job_listing(
+    payload: JobPayload,
+    user_id: str = Depends(get_current_user)
+):
+    """Ingest a raw job description string directly into the database."""
+    if not payload.title or not payload.raw_content:
+        raise HTTPException(
+            status_code=400, 
+            detail="Title and raw content are required fields."
+        )
+    
+    # 1. Clean the incoming payload string
+    from app.enrich import clean_html_tags
+    cleaned_description = clean_html_tags(payload.raw_content)
+    
+    # 2. Structure data
+    normalized_job = {
+        "title": payload.title.strip(),
+        "company": payload.company_name.strip(),
+        "description": cleaned_description,
+        "site": payload.source_platform
+    }
+    
+    # 3. Commit
+    try:
+        from app.db import save_jobs, build_job_id
+        save_jobs([normalized_job], user_id=user_id)
+        job_id = build_job_id(normalized_job)
+        
+        # Trigger enrichment background task
+        from app.tasks import enrich_pipeline_task
+        enrich_pipeline_task.delay(job_id, user_id)
+        
+        return {"status": "success", "message": f"Job saved: {payload.title}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database insertion failed: {str(e)}")
+
+@app.post("/v1/ingest/job-listing-async", status_code=202, tags=["Ingestion"])
+async def ingest_job_listing_async(
+    payload: JobPayload,
+    user_id: str = Depends(get_current_user)
+):
+    """Ingest a raw job description string and process it via Celery."""
+    if not payload.title or not payload.raw_content:
+        raise HTTPException(
+            status_code=400, 
+            detail="Title and raw content are required fields."
+        )
+        
+    from app.tasks import process_raw_ingest
+    task = process_raw_ingest.delay(
+        title=payload.title.strip(),
+        company=payload.company_name.strip(),
+        raw_content=payload.raw_content,
+        source=payload.source_platform,
+        user_id=user_id
+    )
+    return {"status": "queued", "task_id": task.id, "message": f"Job processing queued: {payload.title}"}
 
 @app.get("/jobs", response_model=List[Job], tags=["Jobs"])
 def get_jobs(user_id: str = Depends(get_current_user)):
@@ -108,6 +174,28 @@ def get_stats(user_id: str = Depends(get_current_user)):
     }
 
 
+# ── Job Status Endpoint ───────────────────────────────────────────────────────
+
+@app.put("/jobs/{job_id}/status", tags=["Jobs"])
+async def update_status_endpoint(
+    payload: dict,
+    job_id: str = Path(..., description="The unique ID of the job"),
+    user_id: str = Depends(get_current_user),
+):
+    """Update the status of a job (e.g. for the Kanban board)."""
+    status = payload.get("status")
+    if not status:
+        raise HTTPException(status_code=400, detail="status is required")
+        
+    job = get_job_by_id(job_id, user_id=user_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    from app.db import update_job_status
+    update_job_status(job_id, status, user_id)
+    return {"status": "updated", "job_id": job_id, "new_status": status}
+
+
 # ── Tailor Endpoints ──────────────────────────────────────────────────────────
 
 @app.post("/jobs/sync", tags=["Jobs"])
@@ -120,6 +208,7 @@ async def sync_jobs(user_id: str = Depends(get_current_user)):
 
 @app.post("/jobs/{job_id}/tailor", tags=["Tailoring"])
 async def tailor_job(
+    payload: TailorPayload,
     job_id: str = Path(..., description="The unique ID of the job"),
     user_id: str = Depends(get_current_user),
 ):
@@ -128,7 +217,7 @@ async def tailor_job(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    task = prepare_application_task.delay(job_id, user_id)
+    task = prepare_application_task.delay(job_id, user_id, payload.tone_style)
     return {"status": "tailoring_queued", "task_id": task.id}
 
 
@@ -158,6 +247,116 @@ async def get_job_keywords(
     return analysis
 
 
+@app.get("/jobs/{job_id}/salary-insights", tags=["Intelligence"])
+async def get_salary_insights(
+    job_id: str = Path(..., description="The unique ID of the job"),
+    user_id: str = Depends(get_current_user),
+):
+    """Analyze the job and user's resume to generate salary negotiation insights."""
+    job = get_job_by_id(job_id, user_id=user_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    desc = job.get("description", "")
+    if not desc:
+        raise HTTPException(status_code=400, detail="Job has no description to analyze.")
+
+    from app.resumes import get_best_resume
+    resume_name, base_resume = get_best_resume(user_id=user_id, job_description=desc)
+    if not base_resume:
+        raise HTTPException(status_code=400, detail="No resume found. Please upload a resume first.")
+
+    from app.llm import generate_salary_insights
+    insights = generate_salary_insights(desc, job.get("title", ""), job.get("location", ""), base_resume)
+    return insights
+
+
+@app.get("/jobs/{job_id}/roadmap", tags=["Intelligence"])
+async def get_job_roadmap(
+    job_id: str = Path(..., description="The unique ID of the job"),
+    user_id: str = Depends(get_current_user),
+):
+    """Generate an actionable learning roadmap based on missing skills."""
+    job = get_job_by_id(job_id, user_id=user_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    desc = job.get("description", "")
+    if not desc:
+        raise HTTPException(status_code=400, detail="Job has no description to analyze.")
+
+    from app.resumes import get_best_resume
+    resume_name, base_resume = get_best_resume(user_id=user_id, job_description=desc)
+    if not base_resume:
+        raise HTTPException(
+            status_code=400,
+            detail="No resume found. Please upload a resume first.",
+        )
+
+    missing = job.get("missing_skills") or []
+    if not missing:
+        # Fallback if the job hasn't been scored with the new pipeline
+        from app.llm import analyze_job_keywords
+        analysis = analyze_job_keywords(desc, base_resume)
+        missing = analysis.get("missing", [])
+
+    from app.agents.career_coach import generate_skill_roadmap
+    roadmap = generate_skill_roadmap(missing, desc, base_resume)
+    return roadmap
+
+
+@app.get("/jobs/{job_id}/rejection-analysis", tags=["Intelligence"])
+async def get_job_rejection_analysis(
+    job_id: str = Path(..., description="The unique ID of the job"),
+    user_id: str = Depends(get_current_user),
+):
+    """Generate a candid analysis of why the user was rejected."""
+    job = get_job_by_id(job_id, user_id=user_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    desc = job.get("description", "")
+    if not desc:
+        raise HTTPException(status_code=400, detail="Job has no description to analyze.")
+
+    from app.resumes import get_best_resume
+    resume_name, base_resume = get_best_resume(user_id=user_id, job_description=desc)
+    if not base_resume:
+        raise HTTPException(
+            status_code=400,
+            detail="No resume found. Please upload a resume first.",
+        )
+
+    missing = job.get("missing_skills") or []
+    if not missing:
+        from app.llm import analyze_job_keywords
+        analysis = analyze_job_keywords(desc, base_resume)
+        missing = analysis.get("missing", [])
+
+    from app.agents.career_coach import generate_rejection_analysis
+    analysis = generate_rejection_analysis(missing, desc, base_resume)
+    return analysis
+
+@app.get("/jobs/{job_id}/company-research", tags=["Intelligence"])
+async def get_company_research(
+    job_id: str = Path(..., description="The unique ID of the job"),
+    user_id: str = Depends(get_current_user),
+):
+    """Generate a dossier on the company for the given job."""
+    job = get_job_by_id(job_id, user_id=user_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    company = job.get("company", "")
+    desc = job.get("description", "")
+    
+    if not company:
+        raise HTTPException(status_code=400, detail="Job has no company name.")
+
+    from app.agents.researcher import generate_company_dossier
+    dossier = generate_company_dossier(company, desc)
+    return dossier
+
 @app.get("/jobs/{job_id}/interview-questions", tags=["Tailoring"])
 async def get_job_interview_questions(
     job_id: str = Path(..., description="The unique ID of the job"),
@@ -185,6 +384,32 @@ async def get_job_interview_questions(
 
     questions = generate_interview_questions(desc, base_resume)
     return questions
+
+from app.schemas import InterviewAnswerPayload
+
+@app.post("/jobs/{job_id}/interview/grade", tags=["Intelligence"])
+async def grade_interview_answer_endpoint(
+    payload: InterviewAnswerPayload,
+    job_id: str = Path(..., description="The unique ID of the job"),
+    user_id: str = Depends(get_current_user),
+):
+    """Grade a candidate's answer to an interview question."""
+    job = get_job_by_id(job_id, user_id=user_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    desc = job.get("description", "")
+    if not desc:
+        raise HTTPException(status_code=400, detail="Job has no description.")
+
+    from app.resumes import get_best_resume
+    resume_name, base_resume = get_best_resume(user_id=user_id, job_description=desc)
+    if not base_resume:
+        raise HTTPException(status_code=400, detail="No resume found.")
+
+    from app.llm import grade_interview_answer
+    grade = grade_interview_answer(payload.question, payload.answer, desc, base_resume)
+    return grade
 
 
 # ── Apply Endpoints ───────────────────────────────────────────────────────────
@@ -252,18 +477,57 @@ async def apply_job(
     return {"status": "queued", "job_id": job_id, "attempt_id": attempt_id, "task_id": task.id}
 
 
+@app.get("/tasks/active", tags=["Tasks"])
+def get_active_tasks_endpoint(
+    user_id: str = Depends(get_current_user),
+):
+    """List all active (running or queued) tasks for the authenticated user."""
+    from app.db import get_active_tasks
+    return get_active_tasks(user_id)
+
+
 @app.get("/tasks/{task_id}", tags=["Tasks"])
 def get_task_status(
     task_id: str,
     user_id: str = Depends(get_current_user),
 ):
     """Check the status of a Celery task."""
-    res = celery_app.AsyncResult(task_id)
-    return {
-        "task_id": task_id,
-        "status": res.status,
-        "result": res.result if res.ready() else None,
-    }
+    from app.db import get_task_progress
+    db_progress = get_task_progress(task_id, user_id)
+
+    if db_progress:
+        return {
+            "task_id": task_id,
+            "status": db_progress.get("status", "unknown"),
+            "message": db_progress.get("message"),
+            "progress": db_progress.get("progress", 0),
+            "result": None,
+        }
+
+    # Fallback: try Celery if no DB record (with timeout protection)
+    try:
+        res = celery_app.AsyncResult(task_id)
+        status = res.status.lower() if res.status else "pending"
+        
+        result_payload = None
+        if res.ready():
+            result_payload = {"error": str(res.result)} if isinstance(res.result, Exception) else res.result
+
+        return {
+            "task_id": task_id,
+            "status": status,
+            "message": f"Task is {status}",
+            "progress": 0,
+            "result": result_payload,
+        }
+    except Exception:
+        return {
+            "task_id": task_id,
+            "status": "queued",
+            "message": "Task queued, waiting for worker...",
+            "progress": 0,
+            "result": None,
+        }
 
 
 @app.get("/jobs/{job_id}/apply-status", response_model=List[ApplyStatus], tags=["Application"])
@@ -369,6 +633,49 @@ def remove_resume(
 
 
 # ── Search Config Endpoints ───────────────────────────────────────────────────
+
+@app.post("/search-config/parse-intent", tags=["Search Config"])
+async def parse_search_intent_endpoint(payload: dict, user_id: str = Depends(get_current_user)):
+    text = (payload.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required")
+    from app.llm import parse_search_intent
+    intent = parse_search_intent(text)
+    return intent.model_dump()
+
+
+@app.post("/search-config/chat", tags=["Search Config"])
+async def chat_search_intent_endpoint(payload: dict, user_id: str = Depends(get_current_user)):
+    text = (payload.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required")
+        
+    from app.llm import parse_search_intent
+    intent = parse_search_intent(text).model_dump()
+    
+    # Merge with existing config
+    current_config = get_search_config(user_id=user_id)
+    
+    if intent.get("queries"):
+        # Format queries to dict format if needed
+        current_config["queries"] = [{"query": q, "tier": 1} for q in intent["queries"]]
+        
+    if intent.get("locations"):
+        # Format locations
+        current_config["locations"] = [{"location": loc["location"], "remote": loc["remote"]} for loc in intent["locations"]]
+        
+    if intent.get("seniority_levels"):
+        current_config["seniority_levels"] = intent["seniority_levels"]
+        
+    if intent.get("exclude_titles"):
+        current_config["exclude_titles"] = intent["exclude_titles"]
+        
+    if intent.get("notes"):
+        current_config["profile_notes"] = intent["notes"]
+        
+    saved = save_search_config(user_id=user_id, config=current_config)
+    return {"status": "saved", "config": saved, "intent": intent}
+
 
 @app.get("/search-config", tags=["Search Config"])
 def get_user_search_config(user_id: str = Depends(get_current_user)):
