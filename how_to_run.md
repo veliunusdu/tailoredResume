@@ -5,7 +5,7 @@ Initialize the Setup Wizard:
 python main.py init
 
 Run the Ingestion Pipeline (Fetch, filter, and AI-score new jobs):
-python main.py run
+python main.py run <user_id>
 
 Start the Backend API Server:
 python main.py api

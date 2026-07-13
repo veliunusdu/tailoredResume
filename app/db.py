@@ -112,7 +112,16 @@ def init_db() -> None:
                 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS missing_skills JSONB;
             """)
             cur.execute("""
+                ALTER TABLE jobs ADD COLUMN IF NOT EXISTS found_skills JSONB;
+            """)
+            cur.execute("""
+                ALTER TABLE jobs ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'saved';
+            """)
+            cur.execute("""
                 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS skill_match_score INTEGER;
+            """)
+            cur.execute("""
+                ALTER TABLE jobs ADD COLUMN IF NOT EXISTS embedding JSONB;
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_jobs_user_score
@@ -164,9 +173,16 @@ def init_db() -> None:
                     user_id      TEXT NOT NULL,
                     filename     TEXT NOT NULL,
                     content      TEXT NOT NULL,
+                    structured_data JSONB,
                     storage_path TEXT,
                     created_at   DOUBLE PRECISION
                 )
+            """)
+            cur.execute("""
+                ALTER TABLE resumes ADD COLUMN IF NOT EXISTS structured_data JSONB;
+            """)
+            cur.execute("""
+                ALTER TABLE resumes ADD COLUMN IF NOT EXISTS embedding JSONB;
             """)
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_resumes_user
@@ -180,10 +196,18 @@ def init_db() -> None:
                     locations        JSONB DEFAULT '[]',
                     boards           JSONB DEFAULT '["indeed","linkedin","glassdoor"]',
                     exclude_titles   JSONB DEFAULT '[]',
+                    seniority_levels JSONB DEFAULT '[]',
+                    profile_notes    TEXT,
                     results_per_site INTEGER DEFAULT 20,
                     hours_old        INTEGER DEFAULT 72,
                     updated_at       DOUBLE PRECISION
                 )
+            """)
+            cur.execute("""
+                ALTER TABLE user_search_config ADD COLUMN IF NOT EXISTS seniority_levels JSONB DEFAULT '[]';
+            """)
+            cur.execute("""
+                ALTER TABLE user_search_config ADD COLUMN IF NOT EXISTS profile_notes TEXT;
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS task_progress (
@@ -239,6 +263,19 @@ def get_task_progress(task_id: str, user_id: str) -> dict | None:
             )
             row = cur.fetchone()
             return dict(row) if row else None
+
+
+def get_active_tasks(user_id: str) -> list[dict]:
+    """Fetch active task progress records for the user."""
+    with get_connection(user_id) as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT * FROM task_progress WHERE user_id = %s AND status IN ('running', 'queued', 'pending') ORDER BY updated_at DESC",
+                (user_id,),
+            )
+            rows = cur.fetchall()
+            return [dict(row) for row in rows]
+
 
 
 def save_tailored_materials(job_id: str, user_id: str, tailored_resume: str, cover_letter: str | None = None, interview_questions: list | None = None) -> None:
@@ -330,6 +367,7 @@ from typing import Any
 
 def save_jobs(jobs: list[dict], user_id: str, collector: Any = None) -> int:
     """Insert-or-ignore normalised jobs. Returns count of newly inserted rows."""
+    from app.llm import embed_text
     inserted = 0
     now = time.time()
     with get_connection(user_id) as conn:
@@ -337,12 +375,21 @@ def save_jobs(jobs: list[dict], user_id: str, collector: Any = None) -> int:
             for job in jobs:
                 job_id = build_job_id(job)
                 tags_json = json.dumps(job.get("tags", []))
+                
+                # Check if job already exists to avoid unnecessary API calls
+                cur.execute("SELECT 1 FROM jobs WHERE id = %s AND user_id = %s", (job_id, user_id))
+                if cur.fetchone():
+                    continue
+
+                embed_payload = f"{job.get('title', '')} {job.get('company', '')} {tags_json} {job.get('description', '')}"
+                embedding = embed_text(embed_payload)
+
                 try:
                     cur.execute("""
                         INSERT INTO jobs (
                             id, user_id, title, company, location, url,
-                            date_posted, salary, description, site, tags, fetched_at
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            date_posted, salary, description, site, tags, fetched_at, embedding
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (id, user_id) DO NOTHING
                     """, (
                         job_id, user_id,
@@ -356,6 +403,7 @@ def save_jobs(jobs: list[dict], user_id: str, collector: Any = None) -> int:
                         job.get("site", "Web"),
                         tags_json,
                         now,
+                        json.dumps(embedding) if embedding else None
                     ))
                     if cur.rowcount:
                         inserted += 1
@@ -376,6 +424,39 @@ def get_unscored_jobs(user_id: str) -> list[dict]:
                 (user_id,),
             )
             return [_row_to_job(row) for row in cur.fetchall()]
+
+def rank_jobs_with_vector(job_ids: list[str], resume_id: str, user_id: str) -> dict[str, float]:
+    """Calculate 1 - cosine_distance for the given jobs against a resume in Python to avoid pgvector requirement."""
+    if not job_ids:
+        return {}
+        
+    import math
+    def cosine_similarity(v1, v2):
+        if not v1 or not v2: return 0.0
+        dot_product = sum(a * b for a, b in zip(v1, v2))
+        norm_a = math.sqrt(sum(a * a for a in v1))
+        norm_b = math.sqrt(sum(b * b for b in v2))
+        if norm_a == 0 or norm_b == 0: return 0.0
+        return dot_product / (norm_a * norm_b)
+
+    with get_connection(user_id) as conn:
+        with conn.cursor() as cur:
+            # Get resume embedding
+            cur.execute("SELECT embedding FROM resumes WHERE id = %s AND user_id = %s", (resume_id, user_id))
+            r_row = cur.fetchone()
+            if not r_row or not r_row[0]:
+                return {}
+            resume_emb = r_row[0]
+
+            # Get job embeddings
+            cur.execute("SELECT id, embedding FROM jobs WHERE id = ANY(%s) AND user_id = %s AND embedding IS NOT NULL", (job_ids, user_id))
+            job_rows = cur.fetchall()
+            
+            similarities = {}
+            for jid, j_emb in job_rows:
+                similarities[jid] = cosine_similarity(resume_emb, j_emb)
+            
+            return similarities
 
 
 def get_all_scored_jobs(user_id: str) -> list[dict]:
@@ -403,18 +484,31 @@ def get_job_by_id(job_id: str, user_id: str) -> dict | None:
 
 def save_score(job_id: str, result: dict, user_id: str) -> None:
     """Update a job with its LLM score."""
+    import json
     with get_connection(user_id) as conn:
         with conn.cursor() as cur:
             cur.execute("""
                 UPDATE jobs
-                SET score = %s, verdict = %s, reason = %s
+                SET score = %s, verdict = %s, reason = %s, found_skills = %s, missing_skills = %s
                 WHERE id = %s AND user_id = %s
             """, (
                 result.get("score"),
                 result.get("verdict"),
                 result.get("reason"),
+                json.dumps(result.get("found_skills", [])),
+                json.dumps(result.get("missing_skills", [])),
                 job_id, user_id,
             ))
+
+
+def update_job_status(job_id: str, status: str, user_id: str) -> None:
+    """Update a job's status."""
+    with get_connection(user_id) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE jobs SET status = %s WHERE id = %s AND user_id = %s",
+                (status, job_id, user_id),
+            )
 
 
 def save_job_description(job_id: str, description: str, user_id: str) -> None:

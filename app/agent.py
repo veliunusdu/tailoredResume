@@ -66,16 +66,8 @@ def get_jobs(user_id: str, task_id: str | None = None) -> tuple[list[dict], list
 
     if uncached_jobs:
         if task_id:
-            update_task_progress(task_id, user_id, "running", "Enriching job descriptions with web scrapers...", 60)
-        _logger.info("Enriching descriptions for unscored jobs...")
-        
-        with tqdm(total=len(uncached_jobs), desc="Enriching Jobs", unit="job") as pbar:
-            for job in uncached_jobs:
-                try:
-                    enrich_job_task(job["id"], user_id)
-                except Exception as e:
-                    _logger.error(f"Failed to enrich job %s: %s", job["id"], e)
-                pbar.update(1)
+            update_task_progress(task_id, user_id, "running", "Processing raw jobs for enrichment and scoring...", 60)
+        _logger.info("Found unscored jobs, skipping synchronous enrichment (it will happen asynchronously after scoring).")
 
         if task_id:
             update_task_progress(task_id, user_id, "running", "AI evaluation: Scoring compatibility with Gemini...", 80)

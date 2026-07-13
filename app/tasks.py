@@ -83,16 +83,69 @@ def score_jobs_task(job_ids: list, user_id: str):
         return []
 
     _logger.info(f"Scoring batch of {len(jobs)} jobs (user={user_id})")
-    results = score_jobs_batch(jobs)
-    for job, result in zip(jobs, results):
-        save_score(job["id"], result, user_id=user_id)
-        # Trigger enrichment background task
-        enrich_pipeline_task.delay(job["id"], user_id)
+    from app.db import rank_jobs_with_vector, save_score
+    from app.resumes import get_resumes
+    
+    resumes = get_resumes(user_id)
+    results = []
+    
+    if not resumes:
+        _logger.warning(f"No resumes found for user {user_id}. Skipping scoring.")
+        return []
+        
+    resume_id = resumes[0]["id"]
+    
+    # Get pgvector similarities
+    similarities = rank_jobs_with_vector(job_ids, resume_id, user_id)
+    
+    if similarities and any(v > 0.0 for v in similarities.values()):
+        _logger.info("Using vector similarity for scoring.")
+        for job in jobs:
+            sim = similarities.get(job["id"], 0.0)
+            
+            # Map similarity (usually 0.0 to 1.0) to a 0-10 score
+            score_out_of_10 = max(0, min(10, int((sim - 0.6) * (10 / 0.3))))
+            
+            verdict = "no"
+            if score_out_of_10 >= 7:
+                verdict = "yes"
+            elif score_out_of_10 >= 4:
+                verdict = "maybe"
+                
+            result = {
+                "score": score_out_of_10,
+                "verdict": verdict,
+                "reason": f"AI Vector Similarity Match ({sim:.2f})"
+            }
+            
+            save_score(job["id"], result, user_id=user_id)
+            # Trigger enrichment background task for matches
+            if verdict in ("yes", "maybe"):
+                enrich_pipeline_task.delay(job["id"], user_id)
+            results.append(result)
+    else:
+        _logger.warning("Vector embeddings missing or all zero. Falling back to LLM scoring.")
+        from app.llm import score_jobs_batch
+        import json
+        profile_data = resumes[0].get("structured_profile", {})
+        if isinstance(profile_data, str):
+            try:
+                profile_data = json.loads(profile_data)
+            except:
+                profile_data = {}
+        
+        batch_results = score_jobs_batch(jobs, profile_data)
+        for job, res in zip(jobs, batch_results):
+            save_score(job["id"], res, user_id=user_id)
+            if res.get("verdict") in ("yes", "maybe"):
+                enrich_pipeline_task.delay(job["id"], user_id)
+            results.append(res)
+            
     return results
 
 
 @celery_app.task(bind=True, name="app.tasks.prepare_application_task")
-def prepare_application_task(self, job_id: str, user_id: str):
+def prepare_application_task(self, job_id: str, user_id: str, tone_style: str = "Professional"):
     """Generate tailored resume and cover letter."""
     from app.db import update_task_progress
     job = get_job_by_id(job_id, user_id=user_id)
@@ -105,7 +158,7 @@ def prepare_application_task(self, job_id: str, user_id: str):
     _logger.info(f"Preparing application for job {job_id} (user={user_id})")
     try:
         update_task_progress(task_id, user_id, "running", "Analyzing job description...", 20)
-        result = prepare_application(job, user_id=user_id, task_id=task_id)
+        result = prepare_application(job, user_id=user_id, task_id=task_id, tone_style=tone_style)
         if result and result.get("tailored_resume"):
             from app.db import save_tailored_materials
             save_tailored_materials(

@@ -122,7 +122,7 @@ export function ResumeDiffModal({
           <div className="px-6 py-3 bg-indigo-500/5 border-b border-[var(--border)] flex items-center gap-2 shrink-0">
             <AlertCircle className="w-4 h-4 text-indigo-400" />
             <p className="text-[11px] text-[var(--muted-foreground)] font-medium">
-              Line-by-line diff. <span className="text-rose-400/90 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded">Red highlights</span> show bullet points removed or reworded. <span className="text-emerald-400/90 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">Green highlights</span> show tailored additions and JD keyword optimizations.
+              Line-by-line diff. <span className="text-slate-200 font-bold bg-red-950/40 px-1.5 py-0.5 rounded border border-red-500/30">Matte Red highlights</span> show bullet points removed or reworded. <span className="text-slate-200 font-bold bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-500/30">Matte Green highlights</span> show tailored additions and JD keyword optimizations.
             </p>
           </div>
 
@@ -139,7 +139,7 @@ export function ResumeDiffModal({
                   <div
                     key={idx}
                     className={`px-2 py-0.5 rounded transition-colors whitespace-pre-wrap min-h-[1.2rem] ${
-                      line.isRemoved ? "bg-rose-500/10 text-rose-400 border-l-2 border-rose-500" : "text-[var(--muted-foreground)]/80"
+                      line.isRemoved ? "bg-red-950/40 text-slate-200 border-l-2 border-red-500/50" : "text-[var(--muted-foreground)]/80"
                     }`}
                   >
                     {line.text || " "}
@@ -159,7 +159,7 @@ export function ResumeDiffModal({
                   <div
                     key={idx}
                     className={`px-2 py-0.5 rounded transition-colors whitespace-pre-wrap min-h-[1.2rem] ${
-                      line.isAdded ? "bg-emerald-500/10 text-emerald-400 border-l-2 border-emerald-500 font-semibold" : "text-[var(--foreground)]"
+                      line.isAdded ? "bg-emerald-950/40 text-slate-200 border-l-2 border-emerald-500/50 font-semibold" : "text-[var(--foreground)]"
                     }`}
                   >
                     {line.text || " "}

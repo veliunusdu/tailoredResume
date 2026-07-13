@@ -24,6 +24,7 @@ from app.config import (
     JOBSPY_LOCATION,
     JOBSPY_LIMIT,
     JOB_LIMIT,
+    PROXY_URL,
 )
 from app.search_config import build_searches_for_user
 from app.logger import get_logger
@@ -92,6 +93,7 @@ def _fetch_jobs_google_fallback(search_term: str, location: str, sites: list[str
             location=location,
             results_wanted=limit,
             hours_old=72,
+            proxies=PROXY_URL if PROXY_URL else None,
         )
 
         if jobs_df is None or jobs_df.empty:
@@ -119,6 +121,7 @@ def _fetch_jobs_jobspy(search_term: str, location: str, sites: list[str], limit:
             location=location,
             results_wanted=limit,
             hours_old=72,
+            proxies=PROXY_URL if PROXY_URL else None,
         )
         
         if jobs_df is None or jobs_df.empty:
@@ -251,6 +254,10 @@ def _fetch_jobs_builtin(search_term: str, location: str, limit: int) -> list[dic
             location_text = "Remote"
             if job_posting:
                 locations = job_posting.get("jobLocation") or []
+                if isinstance(locations, dict):
+                    locations = [locations]
+                elif not isinstance(locations, list):
+                    locations = []
                 location_parts = []
                 for place in locations[:3]:
                     address = (place or {}).get("address", {}) if isinstance(place, dict) else {}

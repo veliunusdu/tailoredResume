@@ -21,20 +21,7 @@ _logger = get_logger(__name__)
 DEFAULT_QUERIES = [
     {"query": "software engineer", "tier": 1},
     {"query": "backend engineer", "tier": 1},
-    {"query": "backend developer", "tier": 1},
-    {"query": "full stack developer", "tier": 2},
-    {"query": "full stack engineer", "tier": 2},
-    {"query": "python developer", "tier": 2},
-    {"query": "python engineer", "tier": 2},
-    {"query": "data engineer", "tier": 2},
-    {"query": "devops engineer", "tier": 2},
-    {"query": "site reliability engineer", "tier": 2},
-    {"query": "platform engineer", "tier": 2},
-    {"query": "cloud engineer", "tier": 2},
-    {"query": "machine learning engineer", "tier": 3},
-    {"query": "ml engineer", "tier": 3},
-    {"query": "ai engineer", "tier": 3},
-    {"query": "software developer", "tier": 3},
+    {"query": "full stack developer", "tier": 1},
 ]
 
 DEFAULT_LOCATIONS = [
@@ -44,17 +31,9 @@ DEFAULT_LOCATIONS = [
 ]
 
 DEFAULT_BOARDS = [
-    "jsearch",
-    "weworkremotely",
-    "builtin",
-    "dice",
-    "wellfound",
-    "flexjobs",
     "indeed",
     "linkedin",
     "glassdoor",
-    "zip_recruiter",
-    "google",
 ]
 
 DEFAULT_EXCLUDE_TITLES = [
@@ -100,6 +79,8 @@ def get_search_config(user_id: str) -> dict:
         "locations": DEFAULT_LOCATIONS,
         "boards": DEFAULT_BOARDS,
         "exclude_titles": DEFAULT_EXCLUDE_TITLES,
+        "seniority_levels": [],
+        "profile_notes": "",
         "results_per_site": DEFAULT_RESULTS_PER_SITE,
         "hours_old": DEFAULT_HOURS_OLD,
         "require_human_confirmation": DEFAULT_REQUIRE_HUMAN_CONFIRMATION,
@@ -120,6 +101,8 @@ def save_search_config(user_id: str, config: dict) -> dict:
     locations = json.dumps(config.get("locations", DEFAULT_LOCATIONS))
     boards = json.dumps(config.get("boards", DEFAULT_BOARDS))
     exclude_titles = json.dumps(config.get("exclude_titles", DEFAULT_EXCLUDE_TITLES))
+    seniority_levels = json.dumps(config.get("seniority_levels", []))
+    profile_notes = config.get("profile_notes", "")
     results_per_site = int(config.get("results_per_site", DEFAULT_RESULTS_PER_SITE))
     hours_old = int(config.get("hours_old", DEFAULT_HOURS_OLD))
     require_human_confirmation = int(config.get("require_human_confirmation", DEFAULT_REQUIRE_HUMAN_CONFIRMATION))
@@ -128,20 +111,22 @@ def save_search_config(user_id: str, config: dict) -> dict:
         with conn.cursor() as cur:
             cur.execute("""
                 INSERT INTO user_search_config
-                    (user_id, queries, locations, boards, exclude_titles,
+                    (user_id, queries, locations, boards, exclude_titles, seniority_levels, profile_notes,
                      results_per_site, hours_old, require_human_confirmation, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE SET
                     queries          = EXCLUDED.queries,
                     locations        = EXCLUDED.locations,
                     boards           = EXCLUDED.boards,
                     exclude_titles   = EXCLUDED.exclude_titles,
+                    seniority_levels = EXCLUDED.seniority_levels,
+                    profile_notes    = EXCLUDED.profile_notes,
                     results_per_site = EXCLUDED.results_per_site,
                     hours_old        = EXCLUDED.hours_old,
                     require_human_confirmation = EXCLUDED.require_human_confirmation,
                     updated_at       = EXCLUDED.updated_at
             """, (
-                user_id, queries, locations, boards, exclude_titles,
+                user_id, queries, locations, boards, exclude_titles, seniority_levels, profile_notes,
                 results_per_site, hours_old, require_human_confirmation, now,
             ))
 
@@ -153,12 +138,6 @@ def build_searches_for_user(user_id: str) -> list[dict]:
     """
     Convert the user's search config into the list-of-search-dicts format
     expected by the job-fetching pipeline (same shape as the old searches.yaml).
-
-    Returns a list like:
-    [
-      {"term": "software engineer", "location": "Remote", "limit": 20, "platforms": [...]},
-      ...
-    ]
     """
     cfg = get_search_config(user_id)
 
@@ -178,3 +157,39 @@ def build_searches_for_user(user_id: str) -> list[dict]:
             })
 
     return searches
+
+
+def get_scoring_profile(user_id: str) -> dict:
+    """
+    Builds the dynamic scoring profile by combining the user's search config
+    with an excerpt from their primary resume.
+    """
+    from app.resumes import get_resumes, get_resume_by_id
+    cfg = get_search_config(user_id)
+    
+    resume_summary = "No resume uploaded."
+    structured_data = None
+    
+    resumes = get_resumes(user_id)
+    if resumes:
+        first_resume = get_resume_by_id(resumes[0]["id"], user_id)
+        if first_resume:
+            if first_resume.get("structured_data"):
+                structured_data = first_resume["structured_data"]
+            if first_resume.get("content"):
+                resume_summary = first_resume["content"][:1500]
+
+    locations = cfg.get("locations", [])
+    loc_names = [loc["location"] for loc in locations if isinstance(loc, dict) and "location" in loc]
+    is_remote = any(loc.get("remote", False) for loc in locations if isinstance(loc, dict))
+    if is_remote and "Remote" not in loc_names:
+        loc_names.append("Remote")
+
+    return {
+        "seniority_levels": cfg.get("seniority_levels", []),
+        "exclude_titles": cfg.get("exclude_titles", []),
+        "locations": loc_names,
+        "profile_notes": cfg.get("profile_notes", ""),
+        "resume_summary": resume_summary,
+        "structured_data": structured_data
+    }

@@ -94,3 +94,10 @@ class JobPayload(BaseModel):
     company_name: str
     raw_content: str
     source_platform: Optional[str] = "Manual Ingest"
+
+class InterviewAnswerPayload(BaseModel):
+    question: str
+    answer: str
+
+class TailorPayload(BaseModel):
+    tone_style: str = "Professional"

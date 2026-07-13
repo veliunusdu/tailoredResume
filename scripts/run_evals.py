@@ -68,7 +68,14 @@ def run_evaluations():
                 "reason": "Simulated mock response."
             }
         else:
-            actual = score_job(job)
+            # Provide a comprehensive test profile so the LLM doesn't cap the score due to missing resume.
+            test_profile = case.get("profile", {
+                "seniority_levels": ["Junior", "Entry-level", "Intern"],
+                "locations": ["Remote"],
+                "exclude_titles": ["Frontend", "React", "Manager", "Architect", "Senior", "Staff", "Principal"],
+                "resume_summary": "Entry-level Software Engineer with experience in Python, Backend Development, Data Engineering, and Machine Learning. Proficient in Flask, SQL, PyTorch, and Data Analytics. Looking for junior, internship, or entry-level remote opportunities."
+            })
+            actual = score_job(job, profile=test_profile)
 
         print(f"  Expected: Verdict={case['expected_verdict']} (Score range: min={case.get('min_score', 'N/A')}, max={case.get('max_score', 'N/A')})")
         print(f"  Actual:   Verdict={actual['verdict']} (Score={actual['score']})")

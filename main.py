@@ -23,31 +23,33 @@ def main():
     
     # Run command
     run_parser = subparsers.add_parser("run", help="Fetch, filter, and score new jobs")
+    run_parser.add_argument("user_id", help="The user ID to run ingestion for")
     
     args = parser.parse_args()
     
     if args.command == "init":
         run_init()
     elif args.command == "reset-db":
-        from pathlib import Path
-        data_dir = Path("data")
-        deleted = False
-        if data_dir.exists():
-            for ext in ["*.db", "*.sqlite3", "*.sqlite"]:
-                for db_file in data_dir.glob(ext):
-                    try:
-                        db_file.unlink()
-                        print(f"✅ Deleted {db_file}")
-                        deleted = True
-                    except Exception as e:
-                        print(f"❌ Failed to delete {db_file}: {e}. Ensure the API and Celery workers are completely stopped.")
-        if not deleted:
-            print("ℹ️ No database files found to delete.")
-        else:
-            print("🔄 Database reset complete. The schema will be recreated on the next run.")
+        from app.db import get_connection
+        print("⚠️ Dropping all PostgreSQL tables...")
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        DROP TABLE IF EXISTS jobs CASCADE;
+                        DROP TABLE IF EXISTS source_metrics CASCADE;
+                        DROP TABLE IF EXISTS apply_attempts CASCADE;
+                        DROP TABLE IF EXISTS resumes CASCADE;
+                        DROP TABLE IF EXISTS user_search_config CASCADE;
+                        DROP TABLE IF EXISTS task_progress CASCADE;
+                    """)
+                conn.commit()
+            print("✅ Database reset complete. The schema will be recreated on the next run.")
+        except Exception as e:
+            print(f"❌ Failed to reset PostgreSQL database: {e}")
     elif args.command == "run":
         from app.agent import run as run_agent
-        run_agent()
+        run_agent(args.user_id)
     elif args.command in ["dashboard", "api"]:
         # Import app here to avoid requiring all dependencies for other commands
         from app.api import app

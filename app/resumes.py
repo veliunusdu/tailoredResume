@@ -30,14 +30,27 @@ def save_resume(
     `content` should be plain text / markdown extracted from the uploaded file.
     `storage_path` is an optional URL to the raw file in cloud storage.
     """
+    import json
+    from app.llm import extract_structured_profile, embed_text
+
     resume_id = str(uuid.uuid4())
     now = time.time()
+
+    _logger.info("Extracting structured profile for resume '%s'...", filename)
+    structured_data = extract_structured_profile(content)
+    structured_json = json.dumps(structured_data) if structured_data else None
+
+    embedding = None
+    if structured_json:
+        _logger.info("Generating vector embedding for resume '%s'...", filename)
+        embedding = embed_text(structured_json)
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO resumes (id, user_id, filename, content, storage_path, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (resume_id, user_id, filename, content, storage_path, now))
+                INSERT INTO resumes (id, user_id, filename, content, structured_data, embedding, storage_path, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (resume_id, user_id, filename, content, structured_json, json.dumps(embedding) if embedding else None, storage_path, now))
     _logger.info("✅ Saved resume '%s' for user %s (id=%s)", filename, user_id, resume_id)
     return resume_id
 
@@ -48,7 +61,7 @@ def get_resumes(user_id: str) -> list[dict]:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute("""
                 SELECT id, user_id, filename, storage_path, created_at,
-                       LEFT(content, 200) AS preview
+                       LEFT(content, 200) AS preview, structured_data
                 FROM resumes
                 WHERE user_id = %s
                 ORDER BY created_at DESC
@@ -93,7 +106,7 @@ def get_best_resume(user_id: str, job_description: str) -> tuple[str | None, str
     with get_connection(user_id) as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, filename, content FROM resumes WHERE user_id = %s ORDER BY created_at DESC",
+                "SELECT id, filename, content, structured_data FROM resumes WHERE user_id = %s ORDER BY created_at DESC",
                 (user_id,),
             )
             resumes = [dict(r) for r in cur.fetchall()]
@@ -102,7 +115,9 @@ def get_best_resume(user_id: str, job_description: str) -> tuple[str | None, str
         return None, None
 
     if len(resumes) == 1:
-        return resumes[0]["filename"], resumes[0]["content"]
+        import json
+        content_str = json.dumps(resumes[0]["structured_data"], indent=2) if resumes[0].get("structured_data") else resumes[0]["content"]
+        return resumes[0]["filename"], content_str
 
     # Multiple resumes — use LLM to pick the best one
     try:
@@ -120,8 +135,10 @@ def get_best_resume(user_id: str, job_description: str) -> tuple[str | None, str
         profiles_summary = ""
         profiles_map: dict[str, str] = {}
         for r in resumes:
-            profiles_map[r["filename"]] = r["content"]
-            profiles_summary += f"\n--- {r['filename']} ---\n{r['content'][:800]}...\n"
+            import json
+            content_str = json.dumps(r["structured_data"], indent=2) if r.get("structured_data") else r["content"]
+            profiles_map[r["filename"]] = content_str
+            profiles_summary += f"\n--- {r['filename']} ---\n{content_str[:800]}...\n"
 
         prompt = f"""
 You are an expert recruiter. Route the JOB DESCRIPTION to the most suitable candidate profile.
@@ -156,4 +173,6 @@ AVAILABLE PROFILES (Excerpts):
     except Exception as exc:
         _logger.error("Failed to select best resume via LLM: %s. Using first.", exc)
 
-    return resumes[0]["filename"], resumes[0]["content"]
+    import json
+    content_str = json.dumps(resumes[0]["structured_data"], indent=2) if resumes[0].get("structured_data") else resumes[0]["content"]
+    return resumes[0]["filename"], content_str

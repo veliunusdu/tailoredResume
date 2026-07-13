@@ -3,12 +3,6 @@ BLOCKLIST = [
     "head of", "principal", "staff", "vp", "vice president",
 ]
 
-ALLOWLIST = [
-    "python", "backend", "fullstack", "flask", "django",
-    "fastapi", "data", "ml", "ai", "intern",
-]
-
-
 def _normalize(raw: dict) -> dict:
     """Map raw API fields to a consistent internal shape."""
     source = raw.get("source_type", "remotive")
@@ -65,15 +59,10 @@ def filter_jobs(jobs: list[dict], user_id: str, collector: Any = None) -> list[d
             continue
 
         title = str(job.get("title") or "").lower()
-
-        if blocklist and any(word in title for word in blocklist):
+        if not title:
             continue
 
-        tags_list = job.get("tags") or []
-        tags_str = " ".join(str(t) for t in tags_list).lower()
-        
-        combined = title + " " + tags_str
-        if not any(word in combined for word in ALLOWLIST):
+        if blocklist and any(word in title for word in blocklist):
             continue
 
         norm_job = _normalize(job)

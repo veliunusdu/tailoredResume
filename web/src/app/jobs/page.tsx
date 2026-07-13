@@ -1,5 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
-import { auth } from "@clerk/nextjs/server";
+import { safeAuth } from "@/utils/safeAuth";
 import { redirect } from "next/navigation";
 import { JobCard } from "@/components/JobCard";
 import { Job } from "@/types";
@@ -9,7 +9,7 @@ import Link from "next/link";
 export default async function JobsPage(props: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const { userId } = await auth();
+  const { userId } = await safeAuth();
   if (!userId) {
     redirect("/sign-in");
   }

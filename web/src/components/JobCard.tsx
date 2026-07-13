@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Briefcase, ExternalLink, MapPin, DollarSign,
@@ -14,10 +14,23 @@ import { apiGet, apiPost } from "@/lib/api";
 import { ResumeDiffModal } from "./ResumeDiffModal";
 import { CoverLetterModal } from "./CoverLetterModal";
 import { createClient } from "../utils/supabase/client";
+import { ProcessTracker } from "./ProcessTracker";
+import { AICareerCoach } from "./AICareerCoach";
+import { RejectionAnalysis } from "./RejectionAnalysis";
+import Link from "next/link";
 
-export function JobCard({ job, index }: { job: Job; index: number }) {
+interface TailorTaskResponse {
+  status: string;
+  task_id: string;
+}
+
+export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: number; onTailorSuccess?: () => void }) {
   const { getToken } = useSafeAuth();
+  const [currentJob, setCurrentJob] = useState<Job>(job);
   const [loadingTailor, setLoadingTailor] = useState(false);
+  const [tailorStatus, setTailorStatus] = useState<string | null>(null);
+  const [tailorProgress, setTailorProgress] = useState<number>(0);
+  const [tailorTaskState, setTailorTaskState] = useState<string>("queued");
   const [tailorMsg, setTailorMsg]         = useState<string | null>(null);
 
   // Keyword Heatmap state
@@ -26,17 +39,142 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
   const [loadingKeywords, setLoadingKeywords]   = useState(false);
 
   // Interview Questions state
-  const [showQuestions, setShowQuestions]       = useState(!!(job.interview_questions && job.interview_questions.length > 0));
-  const [questions, setQuestions]               = useState<InterviewQuestion[]>(job.interview_questions || []);
+  const [showQuestions, setShowQuestions]       = useState(!!(currentJob.interview_questions && currentJob.interview_questions.length > 0));
+  const [questions, setQuestions]               = useState<InterviewQuestion[]>(currentJob.interview_questions || []);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
 
+  const tailorIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  const tailorChannelRef = React.useRef<any | null>(null);
+
   useEffect(() => {
-    if (job.interview_questions && job.interview_questions.length > 0) {
-      setQuestions(job.interview_questions);
-      // Only auto-show if we didn't have them before, or let's just sync it
+    setCurrentJob(job);
+  }, [job]);
+
+  useEffect(() => {
+    if (currentJob.interview_questions && currentJob.interview_questions.length > 0) {
+      setQuestions(currentJob.interview_questions);
       setShowQuestions(true);
     }
-  }, [job.interview_questions]);
+  }, [currentJob.interview_questions]);
+
+  const trackTailorTask = useCallback((taskId: string) => {
+    setLoadingTailor(true);
+    setTailorStatus("Tailoring starting...");
+    setTailorProgress(10);
+    setTailorTaskState("running");
+
+    if (tailorIntervalRef.current) clearInterval(tailorIntervalRef.current);
+    if (tailorChannelRef.current) tailorChannelRef.current.unsubscribe();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`tailor-task-${taskId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "task_progress",
+          filter: `task_id=eq.${taskId}`,
+        },
+        async (payload: any) => {
+          const data = payload.new;
+          if (data.status === "running") {
+            setTailorStatus(data.message);
+            setTailorProgress(data.progress || 0);
+            setTailorTaskState("running");
+          } else if (data.status === "success") {
+            setTailorStatus("Resume & cover letter tailored successfully!");
+            setTailorProgress(100);
+            setTailorTaskState("success");
+            channel.unsubscribe();
+            const { data: updatedJob } = await supabase
+              .from("jobs")
+              .select("*")
+              .eq("id", currentJob.id)
+              .single();
+            if (updatedJob) {
+              setCurrentJob(updatedJob);
+            }
+            if (onTailorSuccess) {
+              onTailorSuccess();
+            }
+          } else if (data.status === "failed") {
+            setTailorStatus(`Tailoring failed: ${data.message || "Unknown error"}`);
+            setTailorProgress(0);
+            setTailorTaskState("failed");
+            channel.unsubscribe();
+          }
+        }
+      )
+      .subscribe();
+
+    const interval = setInterval(async () => {
+      try {
+        const taskRes = await apiGet<{ status: string; message: string; progress: number }>(`/tasks/${taskId}`, getToken);
+        if (taskRes.status === "running" && taskRes.message) {
+          setTailorStatus(taskRes.message);
+          setTailorProgress(taskRes.progress || 0);
+          setTailorTaskState("running");
+        } else if (taskRes.status === "success" || taskRes.status === "completed" || taskRes.status === "successful") {
+          setTailorStatus("Resume & cover letter tailored successfully!");
+          setTailorProgress(100);
+          setTailorTaskState("success");
+          clearInterval(interval);
+          channel.unsubscribe();
+          const { data: updatedJob } = await supabase
+            .from("jobs")
+            .select("*")
+            .eq("id", currentJob.id)
+            .single();
+          if (updatedJob) {
+            setCurrentJob(updatedJob);
+          }
+          if (onTailorSuccess) {
+            onTailorSuccess();
+          }
+        } else if (taskRes.status === "failed" || taskRes.status === "failure") {
+          setTailorStatus(`Tailoring failed: ${taskRes.message || "Unknown error"}`);
+          setTailorProgress(0);
+          setTailorTaskState("failed");
+          clearInterval(interval);
+          channel.unsubscribe();
+        }
+      } catch (e) {
+        console.error("Error polling tailoring task:", e);
+      }
+    }, 1500);
+
+    tailorChannelRef.current = channel;
+    tailorIntervalRef.current = interval;
+  }, [currentJob.id, getToken, onTailorSuccess]);
+
+  useEffect(() => {
+    const savedTailorTaskId = localStorage.getItem(`tailor-task-${currentJob.id}`);
+    if (savedTailorTaskId) {
+      const verifyActive = async () => {
+        try {
+          const taskRes = await apiGet<{ status: string; message: string; progress: number }>(`/tasks/${savedTailorTaskId}`, getToken);
+          if (taskRes.status === "running" || taskRes.status === "queued" || taskRes.status === "pending") {
+            trackTailorTask(savedTailorTaskId);
+          } else {
+            localStorage.removeItem(`tailor-task-${currentJob.id}`);
+          }
+        } catch (e) {
+          localStorage.removeItem(`tailor-task-${currentJob.id}`);
+        }
+      };
+      verifyActive();
+    }
+  }, [currentJob.id, getToken, trackTailorTask]);
+
+  useEffect(() => {
+    return () => {
+      if (tailorIntervalRef.current) clearInterval(tailorIntervalRef.current);
+      if (tailorChannelRef.current) tailorChannelRef.current.unsubscribe();
+    };
+  }, []);
+
   const [error, setError] = useState<string | null>(null);
 
   // Resume Diff state
@@ -79,7 +217,7 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
     setError(null);
     try {
       const res = await apiPost<{ status: string; task_id: string; attempt_id: string }>(
-        `/jobs/${job.id}/apply?dry_run=${dryRun}`,
+        `/jobs/${currentJob.id}/apply?dry_run=${dryRun}`,
         {},
         getToken
       );
@@ -140,7 +278,7 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
         }
 
         try {
-          const attemptsList = await apiGet<any[]>(`/jobs/${job.id}/apply-status`, getToken);
+          const attemptsList = await apiGet<any[]>(`/jobs/${currentJob.id}/apply-status`, getToken);
           const current = attemptsList.find(a => a.id === res.attempt_id);
           if (current) {
             if (current.status === "success") {
@@ -190,18 +328,29 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
     if (score >= 4) return { text: "text-amber-500",  bg: "bg-amber-500/10",  border: "border-amber-500/20"  };
     return              { text: "text-rose-500",    bg: "bg-rose-500/10",    border: "border-rose-500/20"    };
   };
-  const scoreStyle = getScoreStyle(job.score);
+  const scoreStyle = getScoreStyle(currentJob.score);
 
   const handleTailor = async () => {
     setLoadingTailor(true);
-    setTailorMsg(null);
+    setTailorStatus("Queuing tailoring task...");
+    setTailorProgress(5);
+    setTailorTaskState("queued");
+    setError(null);
     try {
-      await apiPost(`/jobs/${job.id}/tailor`, {}, getToken);
-      setTailorMsg("✅ AI is tailoring your resume in the background…");
-    } catch (_) {
-      setTailorMsg("❌ Failed to start tailoring.");
-    } finally {
-      setLoadingTailor(false);
+      const res = await apiPost<TailorTaskResponse>(`/jobs/${currentJob.id}/tailor`, {}, getToken);
+      if (res && res.task_id) {
+        localStorage.setItem(`tailor-task-${currentJob.id}`, res.task_id);
+        trackTailorTask(res.task_id);
+      } else {
+        throw new Error("Invalid response from server");
+      }
+    } catch (err: any) {
+      setTailorStatus(`❌ Failed to start tailoring: ${err.message || "Unknown error"}`);
+      setTailorTaskState("failed");
+      setTimeout(() => {
+        setLoadingTailor(false);
+        setTailorStatus(null);
+      }, 4000);
     }
   };
 
@@ -213,7 +362,7 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
     setLoadingKeywords(true);
     setError(null);
     try {
-      const data = await apiGet<KeywordAnalysis>(`/jobs/${job.id}/keywords`, getToken);
+      const data = await apiGet<KeywordAnalysis>(`/jobs/${currentJob.id}/keywords`, getToken);
       if (data.found.length === 0 && data.missing.length === 0) {
         setError("No keywords could be extracted from this job description.");
       } else {
@@ -235,7 +384,7 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
     setLoadingQuestions(true);
     setError(null);
     try {
-      const data = await apiGet<InterviewQuestion[]>(`/jobs/${job.id}/interview-questions`, getToken);
+      const data = await apiGet<InterviewQuestion[]>(`/jobs/${currentJob.id}/interview-questions`, getToken);
       if (data.length === 0) {
         setError("No interview questions could be generated for this job.");
       } else {
@@ -263,81 +412,114 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-6">
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-3 flex-wrap">
-            <h3 className="text-2xl font-bold text-[var(--foreground)] group-hover:text-indigo-500 transition-colors">
-              {job.title}
-            </h3>
+            <Link href={`/jobs/${currentJob.id}`}>
+              <h3 className="text-2xl font-bold text-[var(--foreground)] hover:text-indigo-500 hover:underline transition-colors cursor-pointer">
+                {currentJob.title}
+              </h3>
+            </Link>
             <span className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest border shadow-sm ${scoreStyle.bg} ${scoreStyle.text} ${scoreStyle.border}`}>
-              {job.score}/10 Fit
+              {currentJob.score}/10 Fit
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm font-semibold text-[var(--muted-foreground)]">
             <span className="flex items-center gap-1.5 bg-[var(--background)] px-3 py-1.5 rounded-lg border border-[var(--border)]">
-              <Briefcase className="w-4 h-4 text-indigo-400" /> {job.company}
+              <Briefcase className="w-4 h-4 text-indigo-400" /> {currentJob.company}
             </span>
             <span className="flex items-center gap-1.5 bg-[var(--background)] px-3 py-1.5 rounded-lg border border-[var(--border)]">
-              <MapPin className="w-4 h-4 text-rose-400" /> {job.location || "Remote"}
+              <MapPin className="w-4 h-4 text-rose-400" /> {currentJob.location || "Remote"}
             </span>
-            {job.salary && (
+            {currentJob.salary && (
               <span className="flex items-center gap-1.5 bg-[var(--background)] px-3 py-1.5 rounded-lg border border-[var(--border)] text-emerald-400">
-                <DollarSign className="w-4 h-4" /> {job.salary}
+                <DollarSign className="w-4 h-4" /> {currentJob.salary}
               </span>
             )}
           </div>
           
-          {/* AI Extracted Skills & Match Score */}
-          {(job.required_skills && job.required_skills.length > 0) && (
-            <div className="mt-4 flex flex-col gap-2">
-              <div className="flex items-center gap-2">
+          {/* ATS Overlap Heatmap & Gap Analysis */}
+          {(currentJob.found_skills?.length || currentJob.missing_skills?.length) ? (
+            <div className="mt-6 flex flex-col gap-4">
+              <div className="flex items-center gap-2 mb-1">
                 <Target className="w-4 h-4 text-indigo-400" />
                 <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)]">
-                  Tech Stack
+                  ATS Overlap Heatmap
                 </span>
-                {job.skill_match_score !== undefined && (
+                {currentJob.score !== undefined && (
                   <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-md ${
-                    job.skill_match_score >= 80 ? "bg-emerald-500/10 text-emerald-500" : 
-                    job.skill_match_score >= 50 ? "bg-amber-500/10 text-amber-500" : 
+                    currentJob.score >= 8 ? "bg-emerald-500/10 text-emerald-500" : 
+                    currentJob.score >= 4 ? "bg-amber-500/10 text-amber-500" : 
                     "bg-rose-500/10 text-rose-500"
                   }`}>
-                    {job.skill_match_score}% Match
+                    {currentJob.score * 10}% ATS Match
                   </span>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2">
-                {job.required_skills.map((skill) => {
-                  const isMissing = job.missing_skills?.includes(skill);
-                  return (
-                    <span 
-                      key={skill} 
-                      className={`text-xs px-2.5 py-1 rounded-md border ${
-                        isMissing 
-                          ? "bg-rose-500/5 border-rose-500/20 text-rose-400" 
-                          : "bg-indigo-500/5 border-indigo-500/20 text-indigo-400"
-                      }`}
-                    >
-                      {skill}
-                    </span>
-                  );
-                })}
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Found Skills (Git Addition Style) */}
+                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
+                  <h4 className="text-xs font-bold text-emerald-500 uppercase mb-3 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" /> Profile Overlap
+                  </h4>
+                  <div className="space-y-2">
+                    {currentJob.found_skills?.map((skill) => (
+                      <div key={skill} className="flex justify-between items-center text-sm font-medium">
+                        <span className="text-emerald-400">+{skill}</span>
+                        <span className="text-emerald-500/30 text-xs tracking-[0.1em]">████████</span>
+                      </div>
+                    ))}
+                    {(!currentJob.found_skills || currentJob.found_skills.length === 0) && (
+                      <span className="text-xs text-[var(--muted-foreground)]">No matching skills found.</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Missing Skills (Git Deletion Style) */}
+                <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4">
+                  <h4 className="text-xs font-bold text-rose-500 uppercase mb-3 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" /> Gap Analysis
+                  </h4>
+                  <div className="space-y-2">
+                    {currentJob.missing_skills?.map((skill) => (
+                      <div key={skill} className="flex justify-between items-center text-sm font-medium">
+                        <span className="text-rose-400">-{skill}</span>
+                        <span className="text-rose-500/30 text-xs tracking-[0.1em]">████░░░░</span>
+                      </div>
+                    ))}
+                    {(!currentJob.missing_skills || currentJob.missing_skills.length === 0) && (
+                      <span className="text-xs text-[var(--muted-foreground)]">No missing skills detected!</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
+          ) : null}
+
+          {/* AI Career Coach */}
+          {currentJob.status !== "rejected" && (
+            <AICareerCoach jobId={currentJob.id} missingSkills={currentJob.missing_skills} />
+          )}
+
+          {/* Rejection Analysis */}
+          {currentJob.status === "rejected" && (
+            <RejectionAnalysis jobId={currentJob.id} />
           )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-start md:justify-end shrink-0 mt-4 md:mt-0">
-          <a href={job.url} target="_blank" rel="noopener noreferrer"
+          <a href={currentJob.url} target="_blank" rel="noopener noreferrer"
             className="bg-[var(--secondary)] hover:bg-[var(--border)] text-[var(--foreground)] p-3 rounded-xl transition-all"
             title="View Original Posting">
             <ExternalLink className="w-5 h-5" />
           </a>
 
-          {job.tailored_resume ? (
+          {currentJob.tailored_resume ? (
             <>
               <button onClick={handleOpenDiff} disabled={loadingBaseResume}
                 className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 hover:border-emerald-500 text-emerald-500 px-4 py-3 rounded-xl text-sm font-bold transition-all">
                 {loadingBaseResume ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
                 Diff Resume
               </button>
-              {job.cover_letter && (
+              {currentJob.cover_letter && (
                 <button onClick={() => setShowCoverLetterModal(true)}
                   className="flex items-center gap-2 bg-pink-500/10 border border-pink-500/30 hover:border-pink-500 text-pink-500 px-4 py-3 rounded-xl text-sm font-bold transition-all">
                   <FileText className="w-4 h-4" />
@@ -372,16 +554,16 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
               <Loader2 className="w-4 h-4 animate-spin animate-pulse" />
               {applyStatus}
             </button>
-          ) : job.score >= 8 ? (
+          ) : currentJob.score >= 8 ? (
             <button onClick={() => handleAutoApply(true)}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl text-sm font-bold transition-all shadow-md shadow-indigo-600/10"
               title="Autonomous application (Dry Run mode)">
               <Zap className="w-4 h-4 text-amber-400 animate-pulse" />
               Auto-Apply
             </button>
-          ) : job.score >= 4 ? (
+          ) : currentJob.score >= 4 ? (
             <button onClick={() => {
-              if (confirm(`This is a potential match (score ${job.score}/10). Auto-apply might be less accurate. Proceed with Dry Run?`)) {
+              if (confirm(`This is a potential match (score ${currentJob.score}/10). Auto-apply might be less accurate. Proceed with Dry Run?`)) {
                 handleAutoApply(true);
               }
             }}
@@ -399,7 +581,7 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
             </button>
           )}
 
-          <a href={job.url} target="_blank" rel="noopener noreferrer"
+          <a href={currentJob.url} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white shadow-lg shadow-indigo-500/25 hover:-translate-y-0.5">
             Apply Now
           </a>
@@ -421,10 +603,49 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
           </motion.div>
         )}
 
-        {tailorMsg && (
-          <motion.div key="tailor-alert" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-            className={`mb-4 p-3 rounded-xl flex items-center gap-2 text-sm font-medium ${tailorMsg.startsWith("✅") ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"}`}>
-            {tailorMsg}
+        {loadingTailor && tailorStatus && (
+          <motion.div key="tailor-tracker" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-4">
+            <ProcessTracker
+              type="tailor"
+              status={tailorTaskState}
+              message={tailorStatus}
+              progress={tailorProgress}
+              jobTitle={currentJob.title}
+              company={currentJob.company}
+              onDismiss={() => {
+                setLoadingTailor(false);
+                setTailorStatus(null);
+                localStorage.removeItem(`tailor-task-${currentJob.id}`);
+              }}
+            />
+          </motion.div>
+        )}
+
+        {applying && applyStatus && (
+          <motion.div key="apply-tracker" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mb-4">
+            <ProcessTracker
+              type="apply"
+              status={
+                applyStatus.includes("✅") ? "success" : 
+                applyStatus.includes("❌") ? "failed" : 
+                applyStatus.includes("⚠️") ? "manual_required" : 
+                "running"
+              }
+              message={applyStatus}
+              progress={
+                applyStatus.includes("Queuing") ? 15 :
+                applyStatus.includes("Browsing") ? 45 :
+                applyStatus.includes("Filling") ? 75 :
+                applyStatus.includes("✅") ? 100 :
+                applyStatus.includes("❌") ? 0 : 90
+              }
+              jobTitle={currentJob.title}
+              company={currentJob.company}
+              onDismiss={() => {
+                setApplying(false);
+                setApplyStatus(null);
+              }}
+            />
           </motion.div>
         )}
 
@@ -504,9 +725,9 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
       {/* Meta grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         {[
-          { icon: <DollarSign className="w-3.5 h-3.5 text-emerald-500" />, label: "Salary", value: job.salary || "Competitive" },
-          { icon: <Clock       className="w-3.5 h-3.5 text-amber-500"  />, label: "Posted",  value: job.date_posted || "Recently" },
-          { icon: <BarChart3   className="w-3.5 h-3.5 text-pink-500"   />, label: "Source",  value: job.site },
+          { icon: <DollarSign className="w-3.5 h-3.5 text-emerald-500" />, label: "Salary", value: currentJob.salary || "Competitive" },
+          { icon: <Clock       className="w-3.5 h-3.5 text-amber-500"  />, label: "Posted",  value: currentJob.date_posted || "Recently" },
+          { icon: <BarChart3   className="w-3.5 h-3.5 text-pink-500"   />, label: "Source",  value: currentJob.site },
         ].map(({ icon, label, value }) => (
           <div key={label} className="bg-[var(--secondary)]/50 p-4 rounded-xl border border-[var(--border)]">
             <p className="text-[10px] font-black text-[var(--muted-foreground)] uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
@@ -523,7 +744,7 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
           <CheckCircle2 className="w-4 h-4" /> AI Evaluation Insight
         </p>
         <p className="text-sm leading-relaxed text-[var(--foreground)]/80 font-medium">
-          "{job.reason}"
+          "{currentJob.reason}"
         </p>
       </div>
 
@@ -531,17 +752,17 @@ export function JobCard({ job, index }: { job: Job; index: number }) {
         isOpen={showDiffModal}
         onClose={() => setShowDiffModal(false)}
         baseResume={baseResumeText || ""}
-        tailoredResume={job.tailored_resume || ""}
-        jobTitle={job.title}
-        company={job.company}
+        tailoredResume={currentJob.tailored_resume || ""}
+        jobTitle={currentJob.title}
+        company={currentJob.company}
       />
-      {job.cover_letter && (
+      {currentJob.cover_letter && (
         <CoverLetterModal
           isOpen={showCoverLetterModal}
           onClose={() => setShowCoverLetterModal(false)}
-          coverLetter={job.cover_letter}
-          jobTitle={job.title}
-          company={job.company}
+          coverLetter={currentJob.cover_letter}
+          jobTitle={currentJob.title}
+          company={currentJob.company}
         />
       )}
     </motion.div>
