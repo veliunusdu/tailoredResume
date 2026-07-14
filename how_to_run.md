@@ -1,30 +1,51 @@
-1. Main Application Commands
-   The toolkit uses a central main.py entry point. Run these commands from the root directory:
+1. Running with Docker Compose (Recommended)
+   To spin up the entire stack (PostgreSQL, Redis, FastAPI backend, Celery worker/beat, Next.js frontend) at once, run:
+   ```bash
+   docker-compose up --build
+   ```
 
-Initialize the Setup Wizard:
-python main.py init
+2. Running Locally (Manual setup)
+   Before running backend commands, ensure you activate your virtual environment:
+   * Windows (PowerShell): `.venv\Scripts\Activate.ps1`
+   * Windows (CMD): `.venv\Scripts\activate.bat`
+   * Linux/macOS: `source .venv/bin/activate`
 
-Run the Ingestion Pipeline (Fetch, filter, and AI-score new jobs):
-python main.py run <user_id>
+   Make sure Redis is running (e.g., using `docker-compose up -d redis postgres` to start the backing services).
 
-Start the Backend API Server:
-python main.py api
+   ### Main Application Commands
+   Run these commands from the root directory:
 
-Reset the Database Schema:
-python main.py reset-db
+   Initialize the Setup Wizard:
+   python main.py init
 
-2. Running Evaluation & Telemetry Scripts
-   You can run the specialized scripts we updated or added using python directly:
+   Run the Ingestion Pipeline (Fetch, filter, and AI-score new jobs):
+   python main.py run <user_id>
 
-Run the LLM Evaluation Suite (Outputs pass/fail and breakdown by category and difficulty):
-python scripts/run_evals.py
+   Start the Backend API Server:
+   python main.py api
 
-View Yield Metrics & Analytics (Shows raw, filtered, and strong match counts per board):
-python scripts/source_metrics.py <user_id>
+   Reset the Database Schema:
+   python main.py reset-db
 
-Export Scored Jobs to Evals Dataset (Siphons evaluated jobs into evals_dataset.json):
-python scripts/export_to_eval.py <user_id> [limit]
+   ### Running Celery Workers
+   * Run the Celery worker (Windows-compatible command):
+     celery -A app.celery_app worker --loglevel=info -P solo
+   * Run Celery Beat (for scheduled background tasks):
+     celery -A app.celery_app beat --loglevel=info
 
-3. Running Tests
+3. Running Evaluation & Telemetry Scripts
+   Run the specialized scripts using python directly:
+
+   Run the LLM Evaluation Suite (Outputs pass/fail and breakdown by category and difficulty):
+   python scripts/run_evals.py
+
+   View Yield Metrics & Analytics (Shows raw, filtered, and strong match counts per board):
+   python scripts/source_metrics.py <user_id>
+
+   Export Scored Jobs to Evals Dataset (Siphons evaluated jobs into evals_dataset.json):
+   python scripts/export_to_eval.py <user_id> [limit]
+
+4. Running Tests
    To run all verification tests:
    python -m pytest tests/
+
