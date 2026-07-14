@@ -24,7 +24,7 @@ def get_best_base_resume(job_description: str, user_id: str | None = None) -> tu
     Falls back to local DATA_DIR/*.md for backward compatibility.
     """
     if user_id:
-        from app.resumes import get_best_resume
+        from app.services.resume import get_best_resume
         return get_best_resume(user_id=user_id, job_description=job_description)
 
     # Legacy local-file fallback (single-user / dev mode)

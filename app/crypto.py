@@ -42,23 +42,23 @@ def get_user_fernet(user_id: str) -> Fernet:
     master_f = Fernet(MASTER_KEY.encode())
     
     with get_connection(user_id) as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT encrypted_data_key FROM user_keys WHERE user_id = %s", (user_id,))
-            row = cur.fetchone()
-            
-            if row:
-                user_key = master_f.decrypt(row[0].encode())
-                return Fernet(user_key)
-            
-            # Generate new key for user
-            new_key = Fernet.generate_key()
-            encrypted_key = master_f.encrypt(new_key).decode()
-            
-            cur.execute(
-                "INSERT INTO user_keys (user_id, encrypted_data_key) VALUES (%s, %s)",
-                (user_id, encrypted_key)
-            )
-            return Fernet(new_key)
+        cur = conn.cursor()
+        cur.execute("SELECT encrypted_data_key FROM user_keys WHERE user_id = ?", (user_id,))
+        row = cur.fetchone()
+        
+        if row:
+            user_key = master_f.decrypt(row[0].encode())
+            return Fernet(user_key)
+        
+        # Generate new key for user
+        new_key = Fernet.generate_key()
+        encrypted_key = master_f.encrypt(new_key).decode()
+        
+        cur.execute(
+            "INSERT INTO user_keys (user_id, encrypted_data_key) VALUES (?, ?)",
+            (user_id, encrypted_key)
+        )
+        return Fernet(new_key)
 
 def encrypt_user_value(user_id: str, value: str) -> str:
     if not value:

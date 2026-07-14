@@ -87,8 +87,49 @@ def enrich_description(url: str) -> str | None:
     if not url or not url.startswith("http"):
         return None
         
+    html = ""
     try:
         html = fetch_html(url)
+    except Exception as e:
+        _logger.info("Standard HTML fetch failed for %s: %s. Trying Playwright fallback...", url, e)
+        
+    if not html or "security check" in html.lower() or "cloudflare" in html.lower() or "captcha" in html.lower() or len(html) < 2000:
+        try:
+            from playwright.sync_api import sync_playwright
+            _logger.info("Spawning headless Playwright browser to fetch %s...", url)
+
+            def _fetch_pw():
+                with sync_playwright() as p:
+                    browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+                    context = browser.new_context(
+                        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    )
+                    page = context.new_page()
+                    page.goto(url, wait_until="domcontentloaded", timeout=20000)
+                    page.wait_for_timeout(2000)  # brief wait for dynamic content
+                    res = page.content()
+                    browser.close()
+                    return res
+
+            import asyncio
+            try:
+                asyncio.get_running_loop()
+                # If we're inside an asyncio loop, sync_playwright will crash unless it's in a thread
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    html = pool.submit(_fetch_pw).result()
+            except RuntimeError:
+                # No loop running, run directly
+                html = _fetch_pw()
+        except ImportError:
+            _logger.warning("Playwright is not installed. Skipping Playwright fallback.")
+        except Exception as pe:
+            _logger.warning("Playwright HTML fetch failed for %s: %s", url, pe)
+
+    if not html:
+        return None
+
+    try:
         soup = BeautifulSoup(html, "html.parser")
         
         # Tier 1: JSON-LD (Most reliable)
@@ -110,7 +151,7 @@ def enrich_description(url: str) -> str | None:
             return desc
             
     except Exception as e:
-        _logger.warning("Enrichment failed for %s: %s", url, e)
+        _logger.warning("Enrichment parsing failed for %s: %s", url, e)
         
     return None
 

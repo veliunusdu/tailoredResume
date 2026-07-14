@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useSafeAuth } from "@/hooks/useSafeAuth";
 import { apiGet } from "@/lib/api";
 import { Loader2, Lightbulb, Map, Clock, Zap } from "lucide-react";
 
@@ -17,7 +17,7 @@ interface SkillGapRoadmap {
 }
 
 export function RoadmapPanel({ jobId }: { jobId: string }) {
-  const { getToken } = useAuth();
+  const { getToken } = useSafeAuth();
   const [roadmap, setRoadmap] = useState<SkillGapRoadmap | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

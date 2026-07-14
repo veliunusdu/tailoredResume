@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useSafeAuth } from "@/hooks/useSafeAuth";
 import { apiGet, apiPost } from "@/lib/api";
 import { Loader2, MessageSquare, PlayCircle, Send, CheckCircle2, AlertCircle } from "lucide-react";
 import { InterviewQuestion } from "@/types";
@@ -13,7 +13,7 @@ interface InterviewAnswerGrade {
 }
 
 export function InterviewSimulator({ jobId }: { jobId: string }) {
-  const { getToken } = useAuth();
+  const { getToken } = useSafeAuth();
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

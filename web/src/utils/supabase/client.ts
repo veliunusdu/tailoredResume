@@ -1,8 +1,7 @@
-import { createBrowserClient } from '@supabase/ssr'
+// Supabase has been removed from this project.
+// All data is now stored in SQLite via the FastAPI backend.
+// This file is kept as a stub to avoid breaking any stale imports.
 
 export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  throw new Error("Supabase has been removed. Use apiGet/apiPost from @/lib/api instead.");
 }

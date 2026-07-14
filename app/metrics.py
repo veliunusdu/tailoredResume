@@ -38,17 +38,17 @@ class MetricsCollector:
             all_boards = set(self.raw_counts.keys()) | set(self.filtered_counts.keys()) | set(self.inserted_counts.keys())
             
             with get_connection(self.user_id) as conn:
-                with conn.cursor() as cur:
-                    for board in all_boards:
-                        raw = self.raw_counts.get(board, 0)
-                        filtered = self.filtered_counts.get(board, 0)
-                        inserted = self.inserted_counts.get(board, 0)
-                        
-                        try:
-                            cur.execute("""
-                                INSERT INTO source_metrics 
-                                    (run_id, user_id, board, raw_count, filtered_count, inserted_count, fetched_at)
-                                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                            """, (self.run_id, self.user_id, board, raw, filtered, inserted, now))
-                        except Exception:
-                            pass
+                cur = conn.cursor()
+                for board in all_boards:
+                    raw = self.raw_counts.get(board, 0)
+                    filtered = self.filtered_counts.get(board, 0)
+                    inserted = self.inserted_counts.get(board, 0)
+                    
+                    try:
+                        cur.execute("""
+                            INSERT INTO source_metrics 
+                                (run_id, user_id, board, raw_count, filtered_count, inserted_count, fetched_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (self.run_id, self.user_id, board, raw, filtered, inserted, now))
+                    except Exception:
+                        pass

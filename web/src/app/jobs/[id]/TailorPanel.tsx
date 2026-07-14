@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useSafeAuth } from "@/hooks/useSafeAuth";
 import { apiPost } from "@/lib/api";
 import { Loader2, Sparkles, CheckCircle2 } from "lucide-react";
 
@@ -11,7 +11,7 @@ interface TailorTaskResponse {
 }
 
 export function TailorPanel({ jobId, hasTailoredResume }: { jobId: string, hasTailoredResume: boolean }) {
-  const { getToken } = useAuth();
+  const { getToken } = useSafeAuth();
   const [toneStyle, setToneStyle] = useState("Professional");
   const [loading, setLoading] = useState(false);
   const [taskState, setTaskState] = useState<"idle" | "queued" | "running" | "success" | "failed">("idle");
