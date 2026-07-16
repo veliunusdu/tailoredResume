@@ -14,7 +14,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { UserButton } from "@clerk/nextjs";
 import { useSafeAuth, isClerkConfigured } from "../hooks/useSafeAuth";
-import { Job, Resume, SearchConfig, Stats, TaskProgress } from "../types";
+import { Job, Resume, SearchConfig, SourceAnalytics, Stats, TaskProgress } from "../types";
 import { JobCard } from "../components/JobCard";
 import { apiGet, apiPost } from "@/lib/api";
 
@@ -53,6 +53,7 @@ export default function Dashboard() {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [sourceAnalytics, setSourceAnalytics] = useState<SourceAnalytics[]>([]);
 
   // UI states
   const [loading, setLoading] = useState(true);
@@ -71,15 +72,17 @@ export default function Dashboard() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [resumesData, configData, jobsData, statsData] = await Promise.all([
+      const [resumesData, configData, jobsData, statsData, sourceData] = await Promise.all([
         apiGet<Resume[]>("/resumes", getToken),
         apiGet<SearchConfig>("/search-config", getToken).catch(() => null), // might be 404 if not set
         apiGet<Job[]>("/jobs", getToken),
         apiGet<Stats>("/stats", getToken),
+        apiGet<SourceAnalytics[]>("/analytics/sources", getToken),
       ]);
       setResumes(resumesData || []);
       setJobs(jobsData || []);
       setStats(statsData);
+      setSourceAnalytics(sourceData || []);
       return { resumes: resumesData || [], searchConfig: configData };
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -434,7 +437,7 @@ export default function Dashboard() {
                     </div>
                   )
                 ) : (
-                  <AnalyticsPanel stats={stats} jobs={jobs} />
+                  <AnalyticsPanel stats={stats} jobs={jobs} sources={sourceAnalytics} />
                 )}
               </div>
             </motion.div>

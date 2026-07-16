@@ -6,6 +6,7 @@ import {
   Globe, 
   Cpu, 
   CheckCircle, 
+  Database,
   SlidersHorizontal,
   ChevronRight,
   Clock,
@@ -21,8 +22,11 @@ export function DiscoveryFunnel({ stats }: { stats: Stats | null }) {
   const {
     raw_scraped_count,
     filtered_count,
+    inserted_count,
     scored_count,
     strong_count,
+    failed_count,
+    status,
     timestamp
   } = stats.last_discovery;
 
@@ -53,10 +57,22 @@ export function DiscoveryFunnel({ stats }: { stats: Stats | null }) {
       textColor: "text-purple-400"
     },
     {
+      id: "inserted",
+      title: "New Opportunities",
+      count: inserted_count,
+      description: "Unique jobs added after duplicate listings were removed.",
+      icon: <Database className="w-5 h-5 text-cyan-400" />,
+      color: "from-cyan-500/20 to-cyan-600/5",
+      borderColor: "border-cyan-500/20 hover:border-cyan-500/50",
+      textColor: "text-cyan-400"
+    },
+    {
       id: "scored",
       title: "AI Evaluated",
       count: scored_count,
-      description: "Deep-analyzed by Gemini AI against your professional experiences.",
+      description: failed_count > 0
+        ? `${failed_count} new job${failed_count === 1 ? "" : "s"} could not be scored in this run.`
+        : "AI-evaluated against your professional experience.",
       icon: <Cpu className="w-5 h-5 text-amber-400" />,
       color: "from-amber-500/20 to-amber-600/5",
       borderColor: "border-amber-500/20 hover:border-amber-500/50",
@@ -92,17 +108,17 @@ export function DiscoveryFunnel({ stats }: { stats: Stats | null }) {
             Job Discovery & Match Pipeline
           </h2>
           <p className="text-xs text-[var(--muted-foreground)] font-medium mt-1">
-            Analyzing market opportunities to match your experience
+            Measured results from run {stats.last_discovery.run_id}
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs font-bold text-[var(--muted-foreground)] bg-[var(--secondary)] px-3.5 py-2 rounded-xl shadow-inner border border-[var(--border)] w-fit">
           <Clock className="w-3.5 h-3.5 text-indigo-500" />
-          <span>Last Run: {dateString}</span>
+          <span>{status === "failed" ? "Run failed" : "Last run"}: {dateString}</span>
         </div>
       </div>
 
       {/* Funnel Flow Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 relative">
         {funnelStages.map((stage, idx) => (
           <React.Fragment key={stage.id}>
             <motion.div
@@ -145,7 +161,7 @@ export function DiscoveryFunnel({ stats }: { stats: Stats | null }) {
             {/* Connection arrow between columns on desktop */}
             {idx < 3 && (
               <div className="hidden md:flex absolute top-1/2 -translate-y-1/2 w-6 h-6 justify-center items-center text-[var(--muted-foreground)] z-20 pointer-events-none opacity-50"
-                   style={{ left: `calc(${(idx + 1) * 25}% - 12px)` }}>
+                   style={{ left: `calc(${(idx + 1) * 20}% - 12px)` }}>
                 <ChevronRight className="w-5 h-5 animate-pulse text-indigo-500" />
               </div>
             )}

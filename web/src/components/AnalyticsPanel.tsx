@@ -2,14 +2,16 @@
 
 import React from "react";
 import { BarChart3, TrendingUp, Compass, Award, Globe } from "lucide-react";
-import { Job, Stats } from "../types";
+import { Job, SourceAnalytics, Stats } from "../types";
+import { DiscoveryFunnel } from "./DiscoveryFunnel";
 
 interface AnalyticsPanelProps {
   jobs: Job[];
   stats: Stats | null;
+  sources: SourceAnalytics[];
 }
 
-export function AnalyticsPanel({ jobs, stats }: AnalyticsPanelProps) {
+export function AnalyticsPanel({ jobs, stats, sources }: AnalyticsPanelProps) {
   if (!jobs || jobs.length === 0) {
     return (
       <div className="glass p-8 rounded-2xl border border-[var(--border)] text-center">
@@ -66,6 +68,7 @@ export function AnalyticsPanel({ jobs, stats }: AnalyticsPanelProps) {
 
   return (
     <div className="space-y-6">
+      <DiscoveryFunnel stats={stats} />
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
@@ -171,6 +174,42 @@ export function AnalyticsPanel({ jobs, stats }: AnalyticsPanelProps) {
           </div>
         </div>
       </div>
+
+      {sources.length > 0 && (
+        <div className="glass p-6 rounded-2xl border border-[var(--border)] overflow-x-auto">
+          <h3 className="text-lg font-bold flex items-center gap-2.5 mb-2">
+            <Globe className="w-5 h-5 text-teal-500" />
+            Measured Source Performance
+          </h3>
+          <p className="text-xs text-[var(--muted-foreground)] font-semibold mb-5">
+            Actual collection, deduplication, and match results recorded across discovery runs.
+          </p>
+          <table className="w-full min-w-[680px] text-sm">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-wider text-[var(--muted-foreground)] border-b border-[var(--border)]">
+                <th className="py-3 pr-4">Source</th>
+                <th className="py-3 px-4 text-right">Collected</th>
+                <th className="py-3 px-4 text-right">Passed rules</th>
+                <th className="py-3 px-4 text-right">New</th>
+                <th className="py-3 px-4 text-right">Strong</th>
+                <th className="py-3 pl-4 text-right">Avg. score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sources.map((source) => (
+                <tr key={source.board} className="border-b border-[var(--border)]/60 last:border-0">
+                  <td className="py-3 pr-4 font-bold capitalize">{source.board}</td>
+                  <td className="py-3 px-4 text-right">{source.total_raw}</td>
+                  <td className="py-3 px-4 text-right">{source.total_filtered}</td>
+                  <td className="py-3 px-4 text-right">{source.total_inserted}</td>
+                  <td className="py-3 px-4 text-right text-emerald-400 font-bold">{source.strong_matches}</td>
+                  <td className="py-3 pl-4 text-right font-bold">{source.avg_score.toFixed(1)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

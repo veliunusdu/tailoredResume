@@ -112,6 +112,24 @@ def init_db() -> None:
             fetched_at      REAL NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS discovery_runs (
+            run_id          TEXT PRIMARY KEY,
+            user_id         TEXT NOT NULL,
+            raw_count       INTEGER DEFAULT 0,
+            filtered_count  INTEGER DEFAULT 0,
+            inserted_count  INTEGER DEFAULT 0,
+            scored_count    INTEGER DEFAULT 0,
+            strong_count    INTEGER DEFAULT 0,
+            maybe_count     INTEGER DEFAULT 0,
+            failed_count    INTEGER DEFAULT 0,
+            status          TEXT NOT NULL DEFAULT 'completed',
+            started_at      REAL NOT NULL,
+            completed_at    REAL NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_discovery_runs_user_completed
+            ON discovery_runs (user_id, completed_at DESC);
+
         CREATE TABLE IF NOT EXISTS apply_attempts (
             id                  TEXT PRIMARY KEY,
             user_id             TEXT NOT NULL,
@@ -377,7 +395,7 @@ def save_jobs(jobs: list[dict], user_id: str, collector: Any = None) -> int:
                 if conn.execute("SELECT changes()").fetchone()[0]:
                     inserted += 1
                     if collector:
-                        collector.add_inserted(job.get("site", "unknown"), 1)
+                        collector.add_inserted(job.get("site", "unknown"), 1, job_id=job_id)
             except Exception as exc:
                 _logger.warning("Failed to insert job %s: %s", job_id, exc)
 
@@ -597,6 +615,60 @@ def get_source_analytics(user_id: str) -> list[dict]:
             })
         results.sort(key=lambda x: (-x["total_raw"], -x["strong_matches"]))
         return results
+
+
+def get_job_score_summary(job_ids: list[str], user_id: str) -> dict:
+    """Return exact scoring outcomes for a set of jobs from one discovery run."""
+    if not job_ids:
+        return {"scored_count": 0, "strong_count": 0, "maybe_count": 0, "failed_count": 0}
+
+    placeholders = ",".join("?" for _ in job_ids)
+    with get_connection(user_id) as conn:
+        row = conn.execute(f"""
+            SELECT
+                COUNT(score) AS scored_count,
+                SUM(CASE WHEN score >= 7 THEN 1 ELSE 0 END) AS strong_count,
+                SUM(CASE WHEN score >= 4 AND score < 7 THEN 1 ELSE 0 END) AS maybe_count
+            FROM jobs
+            WHERE user_id = ? AND id IN ({placeholders})
+        """, (user_id, *job_ids)).fetchone()
+
+    scored_count = int(row["scored_count"] or 0)
+    return {
+        "scored_count": scored_count,
+        "strong_count": int(row["strong_count"] or 0),
+        "maybe_count": int(row["maybe_count"] or 0),
+        "failed_count": max(len(job_ids) - scored_count, 0),
+    }
+
+
+def get_latest_discovery_run(user_id: str) -> dict | None:
+    """Return the latest persisted discovery funnel for one user."""
+    with get_connection(user_id) as conn:
+        row = conn.execute("""
+            SELECT run_id, raw_count, filtered_count, inserted_count,
+                   scored_count, strong_count, maybe_count, failed_count,
+                   status, completed_at
+            FROM discovery_runs
+            WHERE user_id = ?
+            ORDER BY completed_at DESC
+            LIMIT 1
+        """, (user_id,)).fetchone()
+
+    if not row:
+        return None
+    return {
+        "run_id": row["run_id"],
+        "raw_scraped_count": int(row["raw_count"] or 0),
+        "filtered_count": int(row["filtered_count"] or 0),
+        "inserted_count": int(row["inserted_count"] or 0),
+        "scored_count": int(row["scored_count"] or 0),
+        "strong_count": int(row["strong_count"] or 0),
+        "maybe_count": int(row["maybe_count"] or 0),
+        "failed_count": int(row["failed_count"] or 0),
+        "status": row["status"],
+        "timestamp": float(row["completed_at"]),
+    }
 
 
 # ── Deprecated stubs (kept for import compatibility) ──────────────────────────

@@ -26,6 +26,7 @@ flowchart LR
 - Tailored resumes and cover letters
 - Company, salary, roadmap, and interview-preparation panels
 - Application Kanban and background task tracking
+- Audited discovery funnels and measured source-performance analytics
 - Dry-run browser automation for supported application flows
 
 ## Architecture
@@ -198,10 +199,17 @@ Phase 1 establishes these required release checks:
 
 The same checks run automatically in `.github/workflows/ci.yml`.
 
+Phase 2 strengthens the beta workflow with:
+
+- Exact, persisted discovery-run counts instead of estimated funnel numbers
+- Measured per-source collection, filtering, insertion, and match analytics
+- Validated Kanban pipeline transitions
+- Complete job API fields for skills, interview preparation, and workflow status
+- API integration tests covering authenticated user scoping and core contracts
+
 ## Current limitations
 
-- Critical backend paths still need broader integration and end-to-end coverage.
-- Discovery funnel counts in the current dashboard are partly estimated and should not be treated as audited analytics.
+- Browser-driven application flows still need end-to-end coverage against supported job boards.
 - Guest authentication is intended only for local development.
 - Live application submission requires careful review and production hardening; dry-run mode is the safe default.
 - SQLite is suitable for local and limited beta use, but database strategy should be revisited before high-concurrency deployment.

@@ -20,6 +20,8 @@ from app.db import (
     get_apply_attempts,
     get_all_apply_attempts,
     get_apply_attempt,
+    get_latest_discovery_run,
+    get_source_analytics,
     init_db,
 )
 from app.services.resume import (
@@ -33,7 +35,16 @@ from app.tailor import prepare_application, get_best_base_resume
 from app.tasks import prepare_application_task, apply_to_job_task
 from app.llm import analyze_job_keywords, generate_interview_questions
 from app.celery_app import app as celery_app
-from app.schemas import Job, Stats, ApplyResponse, ApplyStatus, SessionResponse, JobPayload, TailorPayload
+from app.schemas import (
+    ApplyResponse,
+    ApplyStatus,
+    Job,
+    JobPayload,
+    JobStatusPayload,
+    SessionResponse,
+    Stats,
+    TailorPayload,
+)
 import uvicorn
 
 app = FastAPI(
@@ -190,54 +201,37 @@ def get_stats(user_id: str = Depends(get_current_user)):
     strong = [j for j in jobs if j.get("score", 0) >= 7]
     maybe  = [j for j in jobs if 4 <= j.get("score", 0) < 7]
     
-    # Dynamically compute last discovery run stats
-    last_discovery = None
-    latest_fetch = max(j.get("fetched_at", 0) for j in jobs) if jobs else 0
-    if latest_fetch:
-        # Consider jobs fetched in the last 5 minutes of the most recent fetch
-        latest_jobs = [j for j in jobs if j.get("fetched_at", 0) >= latest_fetch - 300]
-        latest_strong = [j for j in latest_jobs if j.get("score", 0) >= 7]
-        latest_maybe = [j for j in latest_jobs if 4 <= j.get("score", 0) < 7]
-        latest_scored = [j for j in latest_jobs if j.get("score") is not None]
-        
-        last_discovery = {
-            "raw_scraped_count": max(len(latest_jobs) * 2 + 5, 0),
-            "filtered_count": max(len(latest_jobs) + 2, 0),
-            "scored_count": len(latest_scored),
-            "strong_count": len(latest_strong),
-            "maybe_count": len(latest_maybe),
-            "timestamp": latest_fetch,
-        }
-
     return {
         "total":     len(jobs),
         "strong":    len(strong),
         "maybe":     len(maybe),
         "avg_score": round(sum(j.get("score", 0) for j in jobs) / max(len(jobs), 1), 1) if jobs else 0,
-        "last_discovery": last_discovery,
+        "last_discovery": get_latest_discovery_run(user_id),
     }
+
+
+@app.get("/analytics/sources", tags=["Jobs"])
+def get_source_analytics_endpoint(user_id: str = Depends(get_current_user)):
+    """Return measured discovery and match yield grouped by source."""
+    return get_source_analytics(user_id)
 
 
 # ── Job Status Endpoint ───────────────────────────────────────────────────────
 
 @app.put("/jobs/{job_id}/status", tags=["Jobs"])
 async def update_status_endpoint(
-    payload: dict,
+    payload: JobStatusPayload,
     job_id: str = Path(..., description="The unique ID of the job"),
     user_id: str = Depends(get_current_user),
 ):
     """Update the status of a job (e.g. for the Kanban board)."""
-    status = payload.get("status")
-    if not status:
-        raise HTTPException(status_code=400, detail="status is required")
-        
     job = get_job_by_id(job_id, user_id=user_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
     from app.db import update_job_status
-    update_job_status(job_id, status, user_id)
-    return {"status": "updated", "job_id": job_id, "new_status": status}
+    update_job_status(job_id, payload.status.value, user_id)
+    return {"status": "updated", "job_id": job_id, "new_status": payload.status.value}
 
 
 # ── Tailor Endpoints ──────────────────────────────────────────────────────────

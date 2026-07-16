@@ -1,5 +1,5 @@
 import json
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import List, Optional
 from enum import Enum
 
@@ -27,10 +27,23 @@ class JobBase(BaseModel):
     reason: Optional[str] = None
     tailored_resume: Optional[str] = None
     cover_letter: Optional[str] = None
+    interview_questions: List[dict] = Field(default_factory=list)
+    required_skills: List[str] = Field(default_factory=list)
+    missing_skills: List[str] = Field(default_factory=list)
+    found_skills: List[str] = Field(default_factory=list)
+    status: str = "saved"
+    skill_match_score: Optional[int] = None
 
-    @field_validator("tags", mode="before")
+    @field_validator(
+        "tags",
+        "interview_questions",
+        "required_skills",
+        "missing_skills",
+        "found_skills",
+        mode="before",
+    )
     @classmethod
-    def parse_tags(cls, v):
+    def parse_json_list(cls, v):
         if isinstance(v, str):
             try:
                 return json.loads(v)
@@ -39,15 +52,18 @@ class JobBase(BaseModel):
         return v or []
 
 class Job(JobBase):
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class LastDiscoveryStats(BaseModel):
+    run_id: str
     raw_scraped_count: int
     filtered_count: int
+    inserted_count: int
     scored_count: int
     strong_count: int
     maybe_count: int
+    failed_count: int
+    status: str
     timestamp: float
 
 class Stats(BaseModel):
@@ -61,6 +77,7 @@ class ApplyResponse(BaseModel):
     status: str
     job_id: Optional[str] = None
     attempt_id: Optional[str] = None
+    task_id: Optional[str] = None
     dry_run: Optional[bool] = None
     message: Optional[str] = None
     ai_patch_suggestion: Optional[str] = None
@@ -101,6 +118,16 @@ class InterviewAnswerPayload(BaseModel):
 
 class TailorPayload(BaseModel):
     tone_style: str = "Professional"
+
+class PipelineStage(str, Enum):
+    SAVED = "saved"
+    QUEUED = "queued"
+    APPLIED = "applied"
+    INTERVIEW = "interview"
+    REJECTED = "rejected"
+
+class JobStatusPayload(BaseModel):
+    status: PipelineStage
 
 class UnifiedSearchContext(BaseModel):
     user_id: str

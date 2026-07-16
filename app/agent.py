@@ -38,68 +38,80 @@ def _print_job(job: dict) -> None:
 
 
 def get_jobs(user_id: str, task_id: str | None = None) -> tuple[list[dict], list[dict]]:
-    from app.db import update_task_progress
+    from app.db import get_job_score_summary, update_task_progress
     from app.metrics import MetricsCollector
     _logger.info("Agent run started for user %s", user_id)
+    collector = None
+    metrics_saved = False
 
-    # 1 & 2 — Fetch & Filter (Only if cache is stale)
-    if should_fetch_jobs(user_id):
-        collector = MetricsCollector(user_id)
+    try:
+        # 1 & 2 — Fetch & Filter (Only if cache is stale)
+        if should_fetch_jobs(user_id):
+            collector = MetricsCollector(user_id)
+            if task_id:
+                update_task_progress(task_id, user_id, "running", "Fetching raw job listings from configured boards...", 20)
+            raw_jobs = fetch_jobs(user_id, collector=collector)
+
+            if task_id:
+                update_task_progress(task_id, user_id, "running", "Filtering jobs against your exclusion rules...", 40)
+            filtered = filter_jobs(raw_jobs, user_id, collector=collector)
+            _logger.info("Fetched %s raw jobs, rule-filtered to %s", len(raw_jobs), len(filtered))
+
+            inserted = save_jobs(filtered, user_id=user_id, collector=collector)
+            _logger.info("Inserted %s new jobs into the database.", inserted)
+        else:
+            _logger.info("Recent fetch detected. Using jobs from the database.")
+
+        # 3 — Deep Enrichment & LLM scoring
+        uncached_jobs = get_unscored_jobs(user_id)
+        _logger.info("Found %s unscored jobs in the database.", len(uncached_jobs))
+
+        if uncached_jobs:
+            if task_id:
+                update_task_progress(task_id, user_id, "running", "Processing raw jobs for enrichment and scoring...", 60)
+            _logger.info("Found unscored jobs, skipping synchronous enrichment (it will happen asynchronously after scoring).")
+
+            if task_id:
+                update_task_progress(task_id, user_id, "running", "AI evaluation: Scoring compatibility with Gemini...", 80)
+
+            batches = [
+                uncached_jobs[i : i + LLM_BATCH_SIZE]
+                for i in range(0, len(uncached_jobs), LLM_BATCH_SIZE)
+            ]
+
+            _logger.info("Processing %s batches...", len(batches))
+
+            with tqdm(total=len(batches), desc="Scoring Batches", unit="batch") as pbar:
+                for batch in batches:
+                    try:
+                        score_jobs_task([j["id"] for j in batch], user_id)
+                    except Exception as exc:
+                        _logger.error("Failed to score batch: %s", exc)
+                    pbar.update(1)
+
+        if collector:
+            summary = get_job_score_summary(list(collector.inserted_job_ids), user_id)
+            collector.save_to_db(**summary)
+            metrics_saved = True
+
+        # 4 - Retrieve and sort by score descending
         if task_id:
-            update_task_progress(task_id, user_id, "running", "Fetching raw job listings from configured boards...", 20)
-        raw_jobs = fetch_jobs(user_id, collector=collector)
-        
-        if task_id:
-            update_task_progress(task_id, user_id, "running", "Filtering jobs against your exclusion rules...", 40)
-        filtered = filter_jobs(raw_jobs, user_id, collector=collector)
-        _logger.info("Fetched %s raw jobs, rule-filtered to %s", len(raw_jobs), len(filtered))
-        
-        inserted = save_jobs(filtered, user_id=user_id, collector=collector)
-        collector.save_to_db()
-        _logger.info("Inserted %s new jobs into the database.", inserted)
-    else:
-        _logger.info("Recent fetch detected. Using jobs from the database.")
+            update_task_progress(task_id, user_id, "running", "Retrieving and sorting job matches...", 95)
+        all_scored = get_all_scored_jobs(user_id)
+        strong = [j for j in all_scored if j.get("score", 0) >= SCORE_STRONG]
+        maybe = [j for j in all_scored if SCORE_MAYBE <= j.get("score", 0) < SCORE_STRONG]
 
-    # 3 — Deep Enrichment & LLM scoring
-    uncached_jobs = get_unscored_jobs(user_id)
-    _logger.info("Found %s unscored jobs in the database.", len(uncached_jobs))
-
-    if uncached_jobs:
-        if task_id:
-            update_task_progress(task_id, user_id, "running", "Processing raw jobs for enrichment and scoring...", 60)
-        _logger.info("Found unscored jobs, skipping synchronous enrichment (it will happen asynchronously after scoring).")
-
-        if task_id:
-            update_task_progress(task_id, user_id, "running", "AI evaluation: Scoring compatibility with Gemini...", 80)
-
-        batches = [
-            uncached_jobs[i : i + LLM_BATCH_SIZE]
-            for i in range(0, len(uncached_jobs), LLM_BATCH_SIZE)
-        ]
-        
-        _logger.info("Processing %s batches...", len(batches))
-        
-        with tqdm(total=len(batches), desc="Scoring Batches", unit="batch") as pbar:
-            for batch in batches:
-                try:
-                    score_jobs_task([j["id"] for j in batch], user_id)
-                except Exception as e:
-                    _logger.error(f"Failed to score batch: %s", e)
-                pbar.update(1)
-
-    # 4 - Retrieve and sort by score descending
-    if task_id:
-        update_task_progress(task_id, user_id, "running", "Retrieving and sorting job matches...", 95)
-    all_scored = get_all_scored_jobs(user_id)
-    strong = [j for j in all_scored if j.get("score", 0) >= SCORE_STRONG]
-    maybe = [j for j in all_scored if SCORE_MAYBE <= j.get("score", 0) < SCORE_STRONG]
-
-    _logger.info(
-        "Agent run completed: strong=%s maybe=%s",
-        len(strong),
-        len(maybe),
-    )
-    return strong, maybe
+        _logger.info(
+            "Agent run completed: strong=%s maybe=%s",
+            len(strong),
+            len(maybe),
+        )
+        return strong, maybe
+    except Exception:
+        if collector and not metrics_saved:
+            summary = get_job_score_summary(list(collector.inserted_job_ids), user_id)
+            collector.save_to_db(status="failed", **summary)
+        raise
 
 
 def run(user_id: str) -> None:

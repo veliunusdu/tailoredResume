@@ -28,13 +28,30 @@ export interface Stats {
   maybe: number;
   avg_score: number;
   last_discovery?: {
+    run_id: string;
     raw_scraped_count: number;
     filtered_count: number;
+    inserted_count: number;
     scored_count: number;
     strong_count: number;
     maybe_count: number;
+    failed_count: number;
+    status: "completed" | "failed";
     timestamp: number;
   };
+}
+
+export interface SourceAnalytics {
+  board: string;
+  total_raw: number;
+  total_filtered: number;
+  total_inserted: number;
+  db_total: number;
+  scored_count: number;
+  strong_matches: number;
+  maybe_matches: number;
+  no_matches: number;
+  avg_score: number;
 }
 
 export interface KeywordAnalysis {
