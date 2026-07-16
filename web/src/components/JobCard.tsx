@@ -5,10 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Briefcase, ExternalLink, MapPin, DollarSign,
   Clock, BarChart3, CheckCircle2, Sparkles, Zap,
-  Loader2, AlertCircle, AlertTriangle, XCircle, RefreshCw,
+  Loader2, AlertCircle, AlertTriangle, XCircle,
   Activity, Target, MessageSquare, HelpCircle, ArrowRightLeft, FileText
 } from "lucide-react";
-import { Job, KeywordAnalysis, InterviewQuestion } from "../types";
+import { ApplyAttempt, Job, KeywordAnalysis, InterviewQuestion, Resume, TaskProgress } from "../types";
 import { useSafeAuth } from "../hooks/useSafeAuth";
 import { apiGet, apiPost } from "@/lib/api";
 import { ResumeDiffModal } from "./ResumeDiffModal";
@@ -18,6 +18,7 @@ import { ProcessTracker } from "./ProcessTracker";
 import { AICareerCoach } from "./AICareerCoach";
 import { RejectionAnalysis } from "./RejectionAnalysis";
 import Link from "next/link";
+import { getErrorMessage } from "@/utils/errors";
 
 interface TailorTaskResponse {
   status: string;
@@ -26,12 +27,12 @@ interface TailorTaskResponse {
 
 export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: number; onTailorSuccess?: () => void }) {
   const { getToken } = useSafeAuth();
-  const [currentJob, setCurrentJob] = useState<Job>(job);
+  const [updatedJob, setUpdatedJob] = useState<Job | null>(null);
+  const currentJob = updatedJob ?? job;
   const [loadingTailor, setLoadingTailor] = useState(false);
   const [tailorStatus, setTailorStatus] = useState<string | null>(null);
   const [tailorProgress, setTailorProgress] = useState<number>(0);
   const [tailorTaskState, setTailorTaskState] = useState<string>("queued");
-  const [tailorMsg, setTailorMsg]         = useState<string | null>(null);
 
   // Keyword Heatmap state
   const [showHeatmap, setShowHeatmap]           = useState(false);
@@ -48,18 +49,6 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
 
   const tailorIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
 
-
-  useEffect(() => {
-    setCurrentJob(job);
-  }, [job]);
-
-  useEffect(() => {
-    if (currentJob.interview_questions && currentJob.interview_questions.length > 0) {
-      setQuestions(currentJob.interview_questions);
-      setShowQuestions(true);
-    }
-  }, [currentJob.interview_questions]);
-
   const trackTailorTask = useCallback((taskId: string) => {
     setLoadingTailor(true);
     setTailorStatus("Tailoring starting...");
@@ -70,7 +59,7 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
 
     const interval = setInterval(async () => {
       try {
-        const taskRes = await apiGet<{ status: string; message: string; progress: number }>(`/tasks/${taskId}`, getToken);
+        const taskRes = await apiGet<TaskProgress>(`/tasks/${taskId}`, getToken);
         if (taskRes.status === "running" && taskRes.message) {
           setTailorStatus(taskRes.message);
           setTailorProgress(taskRes.progress || 0);
@@ -83,7 +72,13 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
           // Refresh job data from FastAPI instead of Supabase
           try {
             const updatedJob = await apiGet<Job>(`/jobs/${currentJob.id}`, getToken);
-            if (updatedJob) setCurrentJob(updatedJob);
+            if (updatedJob) {
+              setUpdatedJob(updatedJob);
+              if (updatedJob.interview_questions?.length) {
+                setQuestions(updatedJob.interview_questions);
+                setShowQuestions(true);
+              }
+            }
           } catch (e) {
             console.error("Failed to refresh job after tailoring:", e);
           }
@@ -108,13 +103,13 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
     if (savedTailorTaskId) {
       const verifyActive = async () => {
         try {
-          const taskRes = await apiGet<{ status: string; message: string; progress: number }>(`/tasks/${savedTailorTaskId}`, getToken);
+          const taskRes = await apiGet<TaskProgress>(`/tasks/${savedTailorTaskId}`, getToken);
           if (taskRes.status === "running" || taskRes.status === "queued" || taskRes.status === "pending") {
             trackTailorTask(savedTailorTaskId);
           } else {
             localStorage.removeItem(`tailor-task-${currentJob.id}`);
           }
-        } catch (e) {
+        } catch {
           localStorage.removeItem(`tailor-task-${currentJob.id}`);
         }
       };
@@ -145,16 +140,19 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
     setLoadingBaseResume(true);
     setError(null);
     try {
-      const resumes = await apiGet<any[]>("/resumes", getToken);
+      const resumes = await apiGet<Resume[]>("/resumes", getToken);
       if (resumes && resumes.length > 0) {
-        const fullResume = await apiGet<any>(`/resumes/${resumes[0].id}`, getToken);
+        const fullResume = await apiGet<Resume>(`/resumes/${resumes[0].id}`, getToken);
+        if (!fullResume.content) {
+          throw new Error("The selected resume has no readable content.");
+        }
         setBaseResumeText(fullResume.content);
         setShowDiffModal(true);
       } else {
         setError("No base resume found. Please upload one in settings.");
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to load base resume.");
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Failed to load base resume."));
     } finally {
       setLoadingBaseResume(false);
     }
@@ -163,8 +161,6 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
   // Auto-Apply states
   const [applying, setApplying] = useState(false);
   const [applyStatus, setApplyStatus] = useState<string | null>(null);
-  const [applyAttemptId, setApplyAttemptId] = useState<string | null>(null);
-
   const handleAutoApply = async (dryRun: boolean = true) => {
     setApplying(true);
     setApplyStatus("Queuing application...");
@@ -175,7 +171,6 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
         {},
         getToken
       );
-      setApplyAttemptId(res.attempt_id);
       setApplyStatus("Browsing page...");
 
       // Polling fallback (Supabase realtime removed — polling is the sole mechanism)
@@ -190,7 +185,7 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
         }
 
         try {
-          const attemptsList = await apiGet<any[]>(`/jobs/${currentJob.id}/apply-status`, getToken);
+          const attemptsList = await apiGet<ApplyAttempt[]>(`/jobs/${currentJob.id}/apply-status`, getToken);
           const current = attemptsList.find(a => a.id === res.attempt_id);
           if (current) {
             if (current.status === "success") {
@@ -223,10 +218,10 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
 
 
 
-    } catch (err: any) {
-      console.error("Error starting auto-apply:", err);
+    } catch (error: unknown) {
+      console.error("Error starting auto-apply:", error);
       setApplyStatus("Failed");
-      setError(err.message || "Failed to start auto-apply");
+      setError(getErrorMessage(error, "Failed to start auto-apply"));
       setTimeout(() => {
         setApplying(false);
         setApplyStatus(null);
@@ -255,8 +250,8 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
       } else {
         throw new Error("Invalid response from server");
       }
-    } catch (err: any) {
-      setTailorStatus(`❌ Failed to start tailoring: ${err.message || "Unknown error"}`);
+    } catch (error: unknown) {
+      setTailorStatus(`❌ Failed to start tailoring: ${getErrorMessage(error, "Unknown error")}`);
       setTailorTaskState("failed");
       setTimeout(() => {
         setLoadingTailor(false);
@@ -280,8 +275,8 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
         setKeywords(data);
         setShowHeatmap(true);
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to analyze keywords.");
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Failed to analyze keywords."));
     } finally {
       setLoadingKeywords(false);
     }
@@ -302,8 +297,8 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
         setQuestions(data);
         setShowQuestions(true);
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to generate questions.");
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Failed to generate questions."));
     } finally {
       setLoadingQuestions(false);
     }
@@ -685,7 +680,7 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
           <CheckCircle2 className="w-4 h-4" /> AI Evaluation Insight
         </p>
         <p className="text-sm leading-relaxed text-[var(--foreground)]/80 font-medium">
-          "{currentJob.reason}"
+          &ldquo;{currentJob.reason}&rdquo;
         </p>
       </div>
 

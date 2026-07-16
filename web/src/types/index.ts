@@ -8,6 +8,7 @@ export interface Job {
   salary: string;
   description: string;
   site: string;
+  tags?: string[];
   score: number;
   verdict: string;
   reason: string;
@@ -78,10 +79,45 @@ export interface StructuredProfile {
 
 export interface Resume {
   id: string;
-  user_id: string;
+  user_id?: string;
   filename: string;
   storage_path?: string;
   created_at: number;
-  preview: string;
+  preview?: string;
+  content?: string;
   structured_data?: StructuredProfile;
+}
+
+export interface SearchQuery {
+  query: string;
+  tier: 1 | 2 | 3;
+}
+
+export interface SearchLocation {
+  location: string;
+  remote: boolean;
+}
+
+export interface SearchConfig {
+  queries: SearchQuery[];
+  locations: SearchLocation[];
+  boards: string[];
+  exclude_titles: string[];
+  seniority_levels: string[];
+  profile_notes: string;
+  results_per_site: number;
+  hours_old: number;
+}
+
+export interface TaskProgress {
+  task_id: string;
+  status: string;
+  message: string;
+  progress: number;
+}
+
+export interface ApplyAttempt {
+  id: string;
+  status: string;
+  error_msg?: string;
 }

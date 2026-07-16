@@ -11,7 +11,7 @@ export async function safeAuth() {
   if (isClerkConfigured) {
     try {
       return await auth();
-    } catch (e) {
+    } catch {
       console.warn("Clerk auth failed (possibly invalid key). Falling back to guest.");
       return { userId: "guest_user", getToken: async () => "guest_token" };
     }

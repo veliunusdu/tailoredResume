@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 import threading
 import time
@@ -25,7 +26,8 @@ _logger = get_logger(__name__)
 
 # ── Database path ─────────────────────────────────────────────────────────────
 
-_DB_PATH = Path(__file__).resolve().parents[1] / "app.db"
+_DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "app.db"
+_DB_PATH = Path(os.getenv("SQLITE_DB_PATH", str(_DEFAULT_DB_PATH))).expanduser().resolve()
 
 # ── Thread-local connection ───────────────────────────────────────────────────
 
@@ -35,6 +37,7 @@ _local = threading.local()
 def _get_connection() -> sqlite3.Connection:
     """Return (or create) a per-thread SQLite connection."""
     if not hasattr(_local, "conn") or _local.conn is None:
+        _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(_DB_PATH), check_same_thread=False, timeout=30)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA journal_mode=WAL")   # concurrent readers

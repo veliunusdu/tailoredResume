@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { BarChart3, TrendingUp, Compass, Award, Percent, Globe } from "lucide-react";
+import { BarChart3, TrendingUp, Compass, Award, Globe } from "lucide-react";
 import { Job, Stats } from "../types";
 
 interface AnalyticsPanelProps {
@@ -149,7 +149,7 @@ export function AnalyticsPanel({ jobs, stats }: AnalyticsPanelProps) {
           </div>
 
           <div className="space-y-4">
-            {sortedBoards.slice(0, 5).map((board, idx) => (
+            {sortedBoards.slice(0, 5).map((board) => (
               <div key={board.name} className="space-y-1">
                 <div className="flex items-center justify-between text-xs font-semibold">
                   <span className="text-[var(--foreground)] flex items-center gap-2">

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSafeAuth } from "@/hooks/useSafeAuth";
 import { apiGet } from "@/lib/api";
 import { Loader2, Lightbulb, Map, Clock, Zap } from "lucide-react";
+import { getErrorMessage } from "@/utils/errors";
 
 interface RoadmapStep {
   skill: string;
@@ -27,8 +28,8 @@ export function RoadmapPanel({ jobId }: { jobId: string }) {
       try {
         const data = await apiGet<SkillGapRoadmap>(`/jobs/${jobId}/roadmap`, getToken);
         setRoadmap(data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (error: unknown) {
+        setError(getErrorMessage(error, "Failed to generate a learning roadmap."));
       } finally {
         setLoading(false);
       }

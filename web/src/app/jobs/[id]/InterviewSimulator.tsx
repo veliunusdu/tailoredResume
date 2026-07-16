@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { useSafeAuth } from "@/hooks/useSafeAuth";
 import { apiGet, apiPost } from "@/lib/api";
-import { Loader2, MessageSquare, PlayCircle, Send, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, MessageSquare, PlayCircle, Send, CheckCircle2 } from "lucide-react";
 import { InterviewQuestion } from "@/types";
+import { getErrorMessage } from "@/utils/errors";
 
 interface InterviewAnswerGrade {
   score: number;
@@ -28,8 +29,8 @@ export function InterviewSimulator({ jobId }: { jobId: string }) {
       try {
         const data = await apiGet<InterviewQuestion[]>(`/jobs/${jobId}/interview-questions`, getToken);
         setQuestions(data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (error: unknown) {
+        setError(getErrorMessage(error, "Failed to generate interview questions."));
       } finally {
         setLoading(false);
       }
@@ -47,8 +48,8 @@ export function InterviewSimulator({ jobId }: { jobId: string }) {
         getToken
       );
       setGrades((prev) => ({ ...prev, [activeQuestion]: result }));
-    } catch (err: any) {
-      console.error(err);
+    } catch (error: unknown) {
+      console.error(getErrorMessage(error));
       alert("Failed to grade answer.");
     } finally {
       setGrading(false);

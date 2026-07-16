@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Loader2, Target, Clock, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import { useSafeAuth } from "../hooks/useSafeAuth";
+import { getErrorMessage } from "@/utils/errors";
 
 interface RoadmapStep {
   skill: string;
@@ -54,8 +55,8 @@ export function AICareerCoach({ jobId, missingSkills }: AICareerCoachProps) {
     try {
       const data = await apiGet<SkillGapRoadmap>(`/jobs/${jobId}/roadmap`, getToken);
       setRoadmap(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to generate roadmap.");
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Failed to generate roadmap."));
     } finally {
       setLoading(false);
     }
@@ -107,7 +108,7 @@ export function AICareerCoach({ jobId, missingSkills }: AICareerCoachProps) {
                 <div className="py-4 space-y-6">
                   <div className="bg-[var(--background)] border border-[var(--border)] rounded-xl p-4">
                     <p className="text-sm text-[var(--foreground)] leading-relaxed italic">
-                      "{roadmap.summary}"
+                      &ldquo;{roadmap.summary}&rdquo;
                     </p>
                   </div>
 

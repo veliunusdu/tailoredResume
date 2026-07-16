@@ -3,30 +3,19 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   Briefcase,
-  CheckCircle2,
   Search,
-  Filter,
   Target,
-  FileText,
-  Loader2,
   RefreshCw,
-  PlusCircle,
   Sun,
   Moon,
-  ArrowLeft,
   Compass,
-  Sparkles,
-  Bot,
-  ChevronRight,
   User,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { UserButton } from "@clerk/nextjs";
 import { useSafeAuth, isClerkConfigured } from "../hooks/useSafeAuth";
-import { Job, Stats } from "../types";
+import { Job, Resume, SearchConfig, Stats, TaskProgress } from "../types";
 import { JobCard } from "../components/JobCard";
-import { ResumeUploader } from "../components/ResumeUploader";
-import { SearchConfigPanel } from "../components/SearchConfigPanel";
 import { apiGet, apiPost } from "@/lib/api";
 
 import { AnalyticsPanel } from "../components/AnalyticsPanel";
@@ -40,13 +29,11 @@ export default function Dashboard() {
   const { getToken } = useSafeAuth();
   
   // Theme state
-  const [darkMode, setDarkMode] = useState(false);
-
-  useEffect(() => {
-    const isDark = localStorage.getItem("theme") === "dark" || 
-                   (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    setDarkMode(isDark);
-  }, []);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("theme") === "dark" ||
+      (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  });
 
   useEffect(() => {
     if (darkMode) {
@@ -60,11 +47,10 @@ export default function Dashboard() {
 
   // Flow & Onboarding states
   const [flowState, setFlowState] = useState<"onboarding" | "dashboard">("onboarding");
-  const [hasSetInitialFlow, setHasSetInitialFlow] = useState(false);
+  const hasSetInitialFlow = React.useRef(false);
 
   // Data states
-  const [resumes, setResumes] = useState<any[]>([]);
-  const [searchConfig, setSearchConfig] = useState<any>(null);
+  const [resumes, setResumes] = useState<Resume[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
 
@@ -86,17 +72,18 @@ export default function Dashboard() {
   const fetchData = useCallback(async () => {
     try {
       const [resumesData, configData, jobsData, statsData] = await Promise.all([
-        apiGet<any[]>("/resumes", getToken),
-        apiGet<any>("/search-config", getToken).catch(() => null), // might be 404 if not set
+        apiGet<Resume[]>("/resumes", getToken),
+        apiGet<SearchConfig>("/search-config", getToken).catch(() => null), // might be 404 if not set
         apiGet<Job[]>("/jobs", getToken),
         apiGet<Stats>("/stats", getToken),
       ]);
       setResumes(resumesData || []);
-      setSearchConfig(configData);
       setJobs(jobsData || []);
       setStats(statsData);
+      return { resumes: resumesData || [], searchConfig: configData };
     } catch (error) {
       console.error("Error fetching data:", error);
+      return null;
     }
   }, [getToken]);
 
@@ -146,9 +133,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     const initFetch = async () => {
-      await fetchData();
+      const initialData = await fetchData();
+      if (initialData && !hasSetInitialFlow.current) {
+        const hasResume = initialData.resumes.length > 0;
+        const hasSearch = Boolean(initialData.searchConfig?.queries?.length);
+        setFlowState(hasResume || hasSearch ? "dashboard" : "onboarding");
+        hasSetInitialFlow.current = true;
+      }
       try {
-        const activeTasks = await apiGet<any[]>("/tasks/active", getToken);
+        const activeTasks = await apiGet<TaskProgress[]>("/tasks/active", getToken);
         const activeSync = Array.isArray(activeTasks) ? activeTasks.find(t => {
           const m = t.message?.toLowerCase() || "";
           return m.includes("sync") || m.includes("scouting") || m.includes("exclusion") || m.includes("listings") || m.includes("scoring compatibility");
@@ -169,18 +162,6 @@ export default function Dashboard() {
       if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    if (loading) return;
-    if (!hasSetInitialFlow) {
-      if (resumes.length > 0 || (searchConfig?.queries && searchConfig.queries.length > 0)) {
-        setFlowState("dashboard");
-      } else {
-        setFlowState("onboarding");
-      }
-      setHasSetInitialFlow(true);
-    }
-  }, [resumes, searchConfig, loading, hasSetInitialFlow]);
 
   const handleSyncJobs = async () => {
     setSyncing(true);
@@ -225,10 +206,6 @@ export default function Dashboard() {
       </div>
     );
   }
-
-  // Determine current onboarding step
-  const hasResume = resumes.length > 0;
-  const hasConfig = searchConfig && searchConfig.queries && searchConfig.queries.length > 0;
 
   return (
     <div className="min-h-screen text-[var(--foreground)] p-6 lg:p-10 relative z-10">

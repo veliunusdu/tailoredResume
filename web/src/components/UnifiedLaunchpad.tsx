@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, FileText, ChevronRight, Loader2, CheckCircle2 } from "lucide-react";
-import { ResumeUploader } from "./ResumeUploader";
+import { Sparkles, ChevronRight, Loader2, CheckCircle2 } from "lucide-react";
+import { ResumeUploader, UploadedResume } from "./ResumeUploader";
 import { apiPost } from "@/lib/api";
 import { useSafeAuth } from "@/hooks/useSafeAuth";
 
@@ -13,7 +13,7 @@ interface UnifiedLaunchpadProps {
 
 export function UnifiedLaunchpad({ onSuccess }: UnifiedLaunchpadProps) {
   const [prompt, setPrompt] = useState("");
-  const [uploadedResume, setUploadedResume] = useState<any>(null);
+  const [uploadedResume, setUploadedResume] = useState<UploadedResume | null>(null);
   const [scouting, setScouting] = useState(false);
   const { getToken } = useSafeAuth();
 
@@ -74,7 +74,7 @@ export function UnifiedLaunchpad({ onSuccess }: UnifiedLaunchpadProps) {
               Step 1: Upload Resume (Recommended)
             </label>
             <p className="text-xs text-[var(--muted-foreground)]">
-              Drop your base resume. We'll automatically parse your skills, seniority, and experience to evaluate and score match compatibility.
+              Drop your base resume. We&apos;ll automatically parse your skills, seniority, and experience to evaluate and score match compatibility.
             </p>
             
             <div className="relative">

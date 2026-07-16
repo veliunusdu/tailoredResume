@@ -1,6 +1,5 @@
 import React from "react";
-import { motion } from "framer-motion";
-import { User, Briefcase, GraduationCap, Code, Clock, Star } from "lucide-react";
+import { Briefcase, GraduationCap, Code, Clock, Star } from "lucide-react";
 import { StructuredProfile } from "../types";
 
 interface ProfileViewerProps {

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSafeAuth } from "@/hooks/useSafeAuth";
 import { apiGet } from "@/lib/api";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { getErrorMessage } from "@/utils/errors";
 
 interface KeywordAnalysis {
   found: string[];
@@ -22,8 +23,8 @@ export function AtsScorePanel({ jobId }: { jobId: string }) {
       try {
         const data = await apiGet<KeywordAnalysis>(`/jobs/${jobId}/keywords`, getToken);
         setAnalysis(data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (error: unknown) {
+        setError(getErrorMessage(error, "Failed to analyze ATS keywords."));
       } finally {
         setLoading(false);
       }

@@ -2,11 +2,11 @@
 
 import React, { useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileText, X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Upload, X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { useSafeAuth } from "../hooks/useSafeAuth";
 import { apiFetch } from "@/lib/api";
 
-interface UploadedResume {
+export interface UploadedResume {
   id: string;
   filename: string;
   preview?: string;

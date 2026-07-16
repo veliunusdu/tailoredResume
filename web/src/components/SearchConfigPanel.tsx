@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Settings2,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -13,26 +12,11 @@ import {
 } from "lucide-react";
 import { useSafeAuth } from "../hooks/useSafeAuth";
 import { apiGet, apiPost } from "@/lib/api";
+import { SearchConfig } from "@/types";
 
-interface SearchQuery {
-  query: string;
-  tier: 1 | 2 | 3;
-}
-
-interface SearchLocation {
-  location: string;
-  remote: boolean;
-}
-
-interface SearchConfig {
-  queries: SearchQuery[];
-  locations: SearchLocation[];
-  boards: string[];
-  exclude_titles: string[];
-  seniority_levels: string[];
-  profile_notes: string;
-  results_per_site: number;
-  hours_old: number;
+interface SearchConfigChatResponse {
+  status: string;
+  config: SearchConfig;
 }
 
 const TIER_COLORS: Record<number, string> = {
@@ -69,7 +53,7 @@ export function SearchConfigPanel({ onConfigSaved }: { onConfigSaved?: () => voi
     setParsingIntent(true);
     setSaveSuccess(false);
     try {
-      const res = await apiPost<any>("/search-config/chat", { text: aiIntentText }, getToken);
+      const res = await apiPost<SearchConfigChatResponse>("/search-config/chat", { text: aiIntentText }, getToken);
       if (res.config) {
         setConfig(res.config);
         setSaveSuccess(true);

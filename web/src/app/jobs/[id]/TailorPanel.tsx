@@ -4,13 +4,20 @@ import { useState } from "react";
 import { useSafeAuth } from "@/hooks/useSafeAuth";
 import { apiPost } from "@/lib/api";
 import { Loader2, Sparkles, CheckCircle2 } from "lucide-react";
+import { getErrorMessage } from "@/utils/errors";
 
 interface TailorTaskResponse {
   status: string;
   task_id: string;
 }
 
-export function TailorPanel({ jobId, hasTailoredResume }: { jobId: string, hasTailoredResume: boolean }) {
+interface TailorPanelProps {
+  jobId: string;
+  hasTailoredResume: boolean;
+  hasCoverLetter: boolean;
+}
+
+export function TailorPanel({ jobId, hasTailoredResume, hasCoverLetter }: TailorPanelProps) {
   const { getToken } = useSafeAuth();
   const [toneStyle, setToneStyle] = useState("Professional");
   const [loading, setLoading] = useState(false);
@@ -32,9 +39,9 @@ export function TailorPanel({ jobId, hasTailoredResume }: { jobId: string, hasTa
           setLoading(false);
         }, 3000);
       }
-    } catch (err: any) {
+    } catch (error: unknown) {
       setTaskState("failed");
-      setStatusMsg(`Failed: ${err.message}`);
+      setStatusMsg(`Failed: ${getErrorMessage(error)}`);
       setLoading(false);
     }
   };
@@ -47,7 +54,7 @@ export function TailorPanel({ jobId, hasTailoredResume }: { jobId: string, hasTa
           Application Tailored
         </h2>
         <p className="text-sm text-[var(--muted-foreground)]">
-          Your resume and cover letter have been tailored for this position.
+          Your resume{hasCoverLetter ? " and cover letter have" : " has"} been tailored for this position.
         </p>
       </div>
     );

@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { Job } from "../types";
 import { JobCard } from "./JobCard";
-import { motion } from "framer-motion";
 import { apiPut } from "@/lib/api";
 import { useSafeAuth } from "../hooks/useSafeAuth";
 
@@ -35,7 +34,8 @@ export function KanbanBoard({ jobs, setJobs }: { jobs: Job[], setJobs: React.Dis
     e.preventDefault();
     if (!draggedJobId) return;
 
-    const jobToUpdate = jobs.find(j => j.id === draggedJobId);
+    const jobId = draggedJobId;
+    const jobToUpdate = jobs.find(j => j.id === jobId);
     if (!jobToUpdate || jobToUpdate.status === statusId) {
       setDraggedJobId(null);
       return;
@@ -43,16 +43,16 @@ export function KanbanBoard({ jobs, setJobs }: { jobs: Job[], setJobs: React.Dis
 
     // Optimistic update
     const previousStatus = jobToUpdate.status;
-    setJobs(prev => prev.map(j => j.id === draggedJobId ? { ...j, status: statusId } : j));
+    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: statusId } : j));
     setDraggedJobId(null);
 
     // Persist
     try {
-      await apiPut(`/jobs/${draggedJobId}/status`, { status: statusId }, getToken);
+      await apiPut(`/jobs/${jobId}/status`, { status: statusId }, getToken);
     } catch (err) {
       console.error("Failed to update job status", err);
       // Revert on error
-      setJobs(prev => prev.map(j => j.id === draggedJobId ? { ...j, status: previousStatus } : j));
+      setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: previousStatus } : j));
     }
   };
 

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { SearchX, Loader2, AlertTriangle, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import { useSafeAuth } from "../hooks/useSafeAuth";
+import { getErrorMessage } from "@/utils/errors";
 
 interface RejectionReason {
   category: string;
@@ -39,8 +40,8 @@ export function RejectionAnalysis({ jobId }: { jobId: string }) {
     try {
       const data = await apiGet<RejectionAnalysisData>(`/jobs/${jobId}/rejection-analysis`, getToken);
       setAnalysis(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to analyze rejection.");
+    } catch (error: unknown) {
+      setError(getErrorMessage(error, "Failed to analyze rejection."));
     } finally {
       setLoading(false);
     }
@@ -94,7 +95,7 @@ export function RejectionAnalysis({ jobId }: { jobId: string }) {
                       <AlertTriangle className="w-4 h-4" /> The Harsh Truth
                     </h5>
                     <p className="text-sm font-semibold text-rose-400">
-                      "{analysis.harsh_truth}"
+                      &ldquo;{analysis.harsh_truth}&rdquo;
                     </p>
                   </div>
 

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, FileText, Check, Copy, ArrowRightLeft } from "lucide-react";
+import { X, FileText, Check, Copy } from "lucide-react";
 
 interface CoverLetterModalProps {
   isOpen: boolean;

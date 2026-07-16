@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSafeAuth } from "@/hooks/useSafeAuth";
 import { apiGet } from "@/lib/api";
 import { Loader2, DollarSign } from "lucide-react";
+import { getErrorMessage } from "@/utils/errors";
 
 interface SalaryInsights {
   listed_salary: string;
@@ -23,8 +24,8 @@ export function SalaryInsightsPanel({ jobId }: { jobId: string }) {
       try {
         const data = await apiGet<SalaryInsights>(`/jobs/${jobId}/salary-insights`, getToken);
         setInsights(data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (error: unknown) {
+        setError(getErrorMessage(error, "Failed to generate salary insights."));
       } finally {
         setLoading(false);
       }

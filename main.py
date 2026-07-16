@@ -33,7 +33,8 @@ def main():
         import os
         from pathlib import Path
         print("⚠️ Deleting local SQLite database...")
-        db_path = Path(__file__).resolve().parent / "app.db"
+        default_db_path = Path(__file__).resolve().parent / "app.db"
+        db_path = Path(os.getenv("SQLITE_DB_PATH", str(default_db_path))).expanduser().resolve()
         try:
             if db_path.exists():
                 os.remove(db_path)

@@ -148,8 +148,6 @@ export function ProcessTracker({
         {steps.map((step, idx) => {
           const isCompleted = progress > step.range[1] || isSuccess;
           const isActive = idx === activeStepIdx && !isSuccess && !isFailed && !isManual;
-          const isUpcoming = progress < step.range[0] && !isSuccess;
-
           return (
             <div key={step.label} className="flex flex-col items-center text-center group">
               <div className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all duration-300 ${

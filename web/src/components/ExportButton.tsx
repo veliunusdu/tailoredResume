@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Download, Loader2, FileText } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 
 interface ExportButtonProps {
   /** Markdown content of the tailored resume */

@@ -23,7 +23,6 @@ export function DiscoveryFunnel({ stats }: { stats: Stats | null }) {
     filtered_count,
     scored_count,
     strong_count,
-    maybe_count,
     timestamp
   } = stats.last_discovery;
 

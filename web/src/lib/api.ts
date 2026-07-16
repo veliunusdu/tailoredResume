@@ -1,3 +1,5 @@
+import { getErrorMessage } from "@/utils/errors";
+
 /**
  * Authenticated API client for TailoredResume.
  *
@@ -63,22 +65,23 @@ export async function apiGet<T>(
         throw new Error(`GET ${path} failed (${res.status}): ${err}`);
       }
       return (await res.json()) as Promise<T>;
-    } catch (e: any) {
-      lastError = e;
+    } catch (error: unknown) {
+      const message = getErrorMessage(error);
+      lastError = error instanceof Error ? error : new Error(message);
       // Retry on network errors or proxy 500/502/504 errors
       const isRetryable =
-        e.name === "TypeError" ||
-        e.message.includes("fetch failed") ||
-        e.message.includes("500") ||
-        e.message.includes("502") ||
-        e.message.includes("504");
+        (error instanceof Error && error.name === "TypeError") ||
+        message.includes("fetch failed") ||
+        message.includes("500") ||
+        message.includes("502") ||
+        message.includes("504");
 
       if (isRetryable && attempt < retries) {
         attempt++;
         await new Promise((resolve) => setTimeout(resolve, 1000 * attempt)); // exponential backoff
         continue;
       }
-      throw e;
+      throw lastError;
     }
   }
   throw lastError;

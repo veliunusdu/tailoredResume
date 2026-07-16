@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import { useSafeAuth } from "@/hooks/useSafeAuth";
 import { Job } from "@/types";
+import { getErrorMessage } from "@/utils/errors";
 
 // Client component for fetching and rendering ATS score
 import { AtsScorePanel } from "./AtsScorePanel";
@@ -31,8 +32,8 @@ export default function JobDashboardPage() {
       try {
         const data = await apiGet<Job>(`/jobs/${id}`, getToken);
         setJob(data);
-      } catch (e: any) {
-        setError(e.message || "Job not found.");
+      } catch (error: unknown) {
+        setError(getErrorMessage(error, "Job not found."));
       } finally {
         setLoading(false);
       }

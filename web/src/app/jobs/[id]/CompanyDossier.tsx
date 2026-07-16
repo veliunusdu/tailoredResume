@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSafeAuth } from "@/hooks/useSafeAuth";
 import { apiGet } from "@/lib/api";
 import { Loader2, Building, Newspaper, Heart, Layers, ArrowRight } from "lucide-react";
+import { getErrorMessage } from "@/utils/errors";
 
 interface CompanyValue {
   title: string;
@@ -28,8 +29,8 @@ export function CompanyDossier({ jobId }: { jobId: string }) {
       try {
         const data = await apiGet<CompanyDossierData>(`/jobs/${jobId}/company-research`, getToken);
         setDossier(data);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (error: unknown) {
+        setError(getErrorMessage(error, "Failed to research the company."));
       } finally {
         setLoading(false);
       }

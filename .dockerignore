@@ -26,6 +26,9 @@ data/*.sqlite3
 data/agent.log
 data/screenshots/
 *.db
+*.db-*
+*.sqlite3-*
+celerybeat-schedule*
 
 # Git
 .git/
