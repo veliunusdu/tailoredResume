@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useSafeAuth } from "@/hooks/useSafeAuth";
 import { apiGet } from "@/lib/api";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 
@@ -12,7 +12,7 @@ interface KeywordAnalysis {
 }
 
 export function AtsScorePanel({ jobId }: { jobId: string }) {
-  const { getToken } = useAuth();
+  const { getToken } = useSafeAuth();
   const [analysis, setAnalysis] = useState<KeywordAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -68,7 +68,13 @@ export function AtsScorePanel({ jobId }: { jobId: string }) {
   return (
     <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 space-y-6">
       <div className="text-center">
-        <h2 className="text-xl font-bold text-[var(--foreground)] mb-6">ATS Match Score</h2>
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-[var(--foreground)]">ATS Keyword Score</h2>
+          <p className="text-xs text-[var(--muted-foreground)] mt-2 max-w-xs mx-auto">
+            Measures strict keyword overlap using your base resume. (Different from the holistic Fit Score). 
+            <br/><span className="text-indigo-400 font-semibold">Tailor your application to boost this!</span>
+          </p>
+        </div>
         
         <div className="relative inline-flex items-center justify-center">
           <svg className="w-32 h-32 transform -rotate-90">

@@ -6,7 +6,7 @@ It takes a prompt string and returns structured Pydantic objects.
 """
 import os
 import json
-from typing import Any, Type, List
+from typing import Any, Type, List, Optional, Dict
 import litellm
 import instructor
 from pydantic import BaseModel, Field
@@ -89,6 +89,7 @@ class SearchIntent(BaseModel):
     locations: List[SearchIntentLocation]
     seniority_levels: List[str] = Field(default_factory=list)
     exclude_titles: List[str] = Field(default_factory=list)
+    visa_sponsorship: Optional[bool] = Field(default=None, description="True if the user explicitly needs visa sponsorship, False if they explicitly do not, None if unmentioned.")
     notes: str = ""
 
 class KeywordAnalysis(BaseModel):
@@ -112,10 +113,15 @@ class InterviewAnswerGrade(BaseModel):
 class JobSkills(BaseModel):
     skills: List[str] = Field(description="A clean array of technical hard skills (e.g., ['React', 'TypeScript', 'Go'])")
 
+_SYSTEM_PROMPT_SINGLE = """
+You are an expert tech recruiter and career advisor.
+Your task is to analyze the candidate's profile and the given job description to evaluate the fit, provide recommendations, or answer specific career-related queries.
+""".strip()
+
 _SYSTEM_PROMPT_INTENT_PARSER = """
 You are an expert career intent parser.
 Your task is to take a user's free-text job search request and convert it into a structured SearchIntent object.
-Extract their queries (e.g. "backend engineer"), desired locations, desired seniority levels (if any), explicit title exclusions (if any), and any other notes they mention.
+Extract their queries (e.g. "backend engineer"), desired locations, desired seniority levels (if any), explicit title exclusions (if any), visa sponsorship needs, and any other notes they mention.
 If they do not specify a seniority level, leave the list empty. Do not assume "junior" or "senior" unless explicitly requested.
 """.strip()
 
@@ -415,6 +421,12 @@ def embed_text(text: str) -> list[float]:
     """Generate a vector embedding for the given text."""
     global _EMBEDDINGS_DISABLED
     if _EMBEDDINGS_DISABLED:
+        return []
+        
+    # If using a non-Gemini model (e.g. DeepSeek), we do not have a valid Google API key for embeddings
+    if "gemini" not in GEMINI_MODEL.lower():
+        _logger.info("Configured model is %s (non-Gemini). Disabling vector embeddings.", GEMINI_MODEL)
+        _EMBEDDINGS_DISABLED = True
         return []
         
     try:

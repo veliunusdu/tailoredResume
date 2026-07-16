@@ -34,9 +34,9 @@ def bulk_ingest_jobs_task():
     # We fetch all unique users who have a search config
     try:
         with get_connection("system") as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT DISTINCT user_id FROM user_search_config")
-                users = cur.fetchall()
+            cur = conn.cursor()
+            cur.execute("SELECT DISTINCT user_id FROM user_search_config")
+            users = cur.fetchall()
         
         for row in users:
             user_id = row[0]
@@ -84,7 +84,7 @@ def score_jobs_task(job_ids: list, user_id: str):
 
     _logger.info(f"Scoring batch of {len(jobs)} jobs (user={user_id})")
     from app.db import rank_jobs_with_vector, save_score
-    from app.resumes import get_resumes
+    from app.services.resume import get_resumes
     
     resumes = get_resumes(user_id)
     results = []
@@ -126,13 +126,12 @@ def score_jobs_task(job_ids: list, user_id: str):
     else:
         _logger.warning("Vector embeddings missing or all zero. Falling back to LLM scoring.")
         from app.llm import score_jobs_batch
+        from app.search_config import build_unified_context
         import json
-        profile_data = resumes[0].get("structured_profile", {})
-        if isinstance(profile_data, str):
-            try:
-                profile_data = json.loads(profile_data)
-            except:
-                profile_data = {}
+        
+        ctx = build_unified_context(user_id)
+        # We pass the full UnifiedSearchContext dictionary representation to the LLM scoring
+        profile_data = ctx.model_dump()
         
         batch_results = score_jobs_batch(jobs, profile_data)
         for job, res in zip(jobs, batch_results):
@@ -147,13 +146,25 @@ def score_jobs_task(job_ids: list, user_id: str):
 @celery_app.task(bind=True, name="app.tasks.prepare_application_task")
 def prepare_application_task(self, job_id: str, user_id: str, tone_style: str = "Professional"):
     """Generate tailored resume and cover letter."""
-    from app.db import update_task_progress
+    from app.db import update_task_progress, save_job_description
+    from app.enrich import enrich_description
     job = get_job_by_id(job_id, user_id=user_id)
     task_id = self.request.id
     if not job:
         _logger.error(f"Job {job_id} not found for tailoring (user={user_id})")
         update_task_progress(task_id, user_id, "failed", "Job not found", 0)
         return False
+
+    desc = job.get("description")
+    if not desc or len(desc) < 100:
+        url = job.get("url")
+        if url:
+            _logger.info(f"Job {job_id} description is missing or short during tailoring. Fetching from {url}...")
+            new_desc = enrich_description(url)
+            if new_desc:
+                save_job_description(job_id, new_desc, user_id=user_id)
+                # reload job to get updated description
+                job = get_job_by_id(job_id, user_id=user_id)
 
     _logger.info(f"Preparing application for job {job_id} (user={user_id})")
     try:
@@ -217,7 +228,8 @@ def enrich_pipeline_task(job_id: str, user_id: str):
     """
     Orchestrate the AI skill extraction, skill gap analysis, and generic salary fetching stub.
     """
-    from app.db import get_job_by_id, save_skill_analysis
+    from app.db import get_job_by_id, save_skill_analysis, save_job_description
+    from app.enrich import enrich_description
     from app.llm import extract_job_skills
     from app.tailor import analyze_skill_gap, get_best_base_resume
     
@@ -227,6 +239,17 @@ def enrich_pipeline_task(job_id: str, user_id: str):
         return False
         
     desc = job.get("description")
+    if not desc or len(desc) < 100:
+        url = job.get("url")
+        if url:
+            _logger.info(f"Job {job_id} description is missing or too short. Attempting to fetch from {url}...")
+            new_desc = enrich_description(url)
+            if new_desc:
+                save_job_description(job_id, new_desc, user_id=user_id)
+                desc = new_desc
+            else:
+                _logger.warning(f"Could not retrieve description for job {job_id} from {url}")
+                
     if not desc:
         _logger.warning(f"Job {job_id} has no description for skill extraction.")
         return False

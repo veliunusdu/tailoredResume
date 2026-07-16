@@ -6,15 +6,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Database ──────────────────────────────────────────────────────────────────
-DATABASE_URL    = os.getenv("DATABASE_URL", "")
+# SQLite3 is used as the primary database (stdlib, no installation needed).
+# DATABASE_URL is kept for informational purposes only; db.py manages the path directly.
+DATABASE_URL    = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 
 # ── Authentication (Clerk) ────────────────────────────────────────────────────
 CLERK_JWKS_URL  = os.getenv("CLERK_JWKS_URL", "")
 CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY", "")
-
-# ── Storage (Supabase) ────────────────────────────────────────────────────────
-SUPABASE_URL        = os.getenv("SUPABASE_URL", "")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 # ── Proxy (optional — for scraper rotation) ───────────────────────────────────
 PROXY_URL       = os.getenv("PROXY_URL", "")

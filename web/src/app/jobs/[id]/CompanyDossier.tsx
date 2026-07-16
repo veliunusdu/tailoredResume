@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useSafeAuth } from "@/hooks/useSafeAuth";
 import { apiGet } from "@/lib/api";
 import { Loader2, Building, Newspaper, Heart, Layers, ArrowRight } from "lucide-react";
 
@@ -18,7 +18,7 @@ interface CompanyDossierData {
 }
 
 export function CompanyDossier({ jobId }: { jobId: string }) {
-  const { getToken } = useAuth();
+  const { getToken } = useSafeAuth();
   const [dossier, setDossier] = useState<CompanyDossierData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

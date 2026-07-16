@@ -49,14 +49,39 @@ export async function apiFetch(
  */
 export async function apiGet<T>(
   path: string,
-  getToken: () => Promise<string | null>
+  getToken: () => Promise<string | null>,
+  retries = 2
 ): Promise<T> {
-  const res = await apiFetch(path, { method: "GET" }, getToken);
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`GET ${path} failed (${res.status}): ${err}`);
+  let attempt = 0;
+  let lastError: Error | null = null;
+
+  while (attempt <= retries) {
+    try {
+      const res = await apiFetch(path, { method: "GET" }, getToken);
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`GET ${path} failed (${res.status}): ${err}`);
+      }
+      return (await res.json()) as Promise<T>;
+    } catch (e: any) {
+      lastError = e;
+      // Retry on network errors or proxy 500/502/504 errors
+      const isRetryable =
+        e.name === "TypeError" ||
+        e.message.includes("fetch failed") ||
+        e.message.includes("500") ||
+        e.message.includes("502") ||
+        e.message.includes("504");
+
+      if (isRetryable && attempt < retries) {
+        attempt++;
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt)); // exponential backoff
+        continue;
+      }
+      throw e;
+    }
   }
-  return res.json() as Promise<T>;
+  throw lastError;
 }
 
 export async function apiPost<T>(

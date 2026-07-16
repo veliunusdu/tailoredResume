@@ -13,8 +13,8 @@ import { useSafeAuth } from "../hooks/useSafeAuth";
 import { apiGet, apiPost } from "@/lib/api";
 import { ResumeDiffModal } from "./ResumeDiffModal";
 import { CoverLetterModal } from "./CoverLetterModal";
-import { createClient } from "../utils/supabase/client";
 import { ProcessTracker } from "./ProcessTracker";
+
 import { AICareerCoach } from "./AICareerCoach";
 import { RejectionAnalysis } from "./RejectionAnalysis";
 import Link from "next/link";
@@ -43,8 +43,11 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
   const [questions, setQuestions]               = useState<InterviewQuestion[]>(currentJob.interview_questions || []);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
 
+  // Detailed Insights Collapsibility
+  const [showDetails, setShowDetails] = useState(false);
+
   const tailorIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
-  const tailorChannelRef = React.useRef<any | null>(null);
+
 
   useEffect(() => {
     setCurrentJob(job);
@@ -64,50 +67,6 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
     setTailorTaskState("running");
 
     if (tailorIntervalRef.current) clearInterval(tailorIntervalRef.current);
-    if (tailorChannelRef.current) tailorChannelRef.current.unsubscribe();
-
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`tailor-task-${taskId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "task_progress",
-          filter: `task_id=eq.${taskId}`,
-        },
-        async (payload: any) => {
-          const data = payload.new;
-          if (data.status === "running") {
-            setTailorStatus(data.message);
-            setTailorProgress(data.progress || 0);
-            setTailorTaskState("running");
-          } else if (data.status === "success") {
-            setTailorStatus("Resume & cover letter tailored successfully!");
-            setTailorProgress(100);
-            setTailorTaskState("success");
-            channel.unsubscribe();
-            const { data: updatedJob } = await supabase
-              .from("jobs")
-              .select("*")
-              .eq("id", currentJob.id)
-              .single();
-            if (updatedJob) {
-              setCurrentJob(updatedJob);
-            }
-            if (onTailorSuccess) {
-              onTailorSuccess();
-            }
-          } else if (data.status === "failed") {
-            setTailorStatus(`Tailoring failed: ${data.message || "Unknown error"}`);
-            setTailorProgress(0);
-            setTailorTaskState("failed");
-            channel.unsubscribe();
-          }
-        }
-      )
-      .subscribe();
 
     const interval = setInterval(async () => {
       try {
@@ -121,33 +80,28 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
           setTailorProgress(100);
           setTailorTaskState("success");
           clearInterval(interval);
-          channel.unsubscribe();
-          const { data: updatedJob } = await supabase
-            .from("jobs")
-            .select("*")
-            .eq("id", currentJob.id)
-            .single();
-          if (updatedJob) {
-            setCurrentJob(updatedJob);
+          // Refresh job data from FastAPI instead of Supabase
+          try {
+            const updatedJob = await apiGet<Job>(`/jobs/${currentJob.id}`, getToken);
+            if (updatedJob) setCurrentJob(updatedJob);
+          } catch (e) {
+            console.error("Failed to refresh job after tailoring:", e);
           }
-          if (onTailorSuccess) {
-            onTailorSuccess();
-          }
+          if (onTailorSuccess) onTailorSuccess();
         } else if (taskRes.status === "failed" || taskRes.status === "failure") {
           setTailorStatus(`Tailoring failed: ${taskRes.message || "Unknown error"}`);
           setTailorProgress(0);
           setTailorTaskState("failed");
           clearInterval(interval);
-          channel.unsubscribe();
         }
       } catch (e) {
         console.error("Error polling tailoring task:", e);
       }
     }, 1500);
 
-    tailorChannelRef.current = channel;
     tailorIntervalRef.current = interval;
   }, [currentJob.id, getToken, onTailorSuccess]);
+
 
   useEffect(() => {
     const savedTailorTaskId = localStorage.getItem(`tailor-task-${currentJob.id}`);
@@ -171,9 +125,9 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
   useEffect(() => {
     return () => {
       if (tailorIntervalRef.current) clearInterval(tailorIntervalRef.current);
-      if (tailorChannelRef.current) tailorChannelRef.current.unsubscribe();
     };
   }, []);
+
 
   const [error, setError] = useState<string | null>(null);
 
@@ -224,54 +178,12 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
       setApplyAttemptId(res.attempt_id);
       setApplyStatus("Browsing page...");
 
-      const supabase = createClient();
-      const channel = supabase
-        .channel(`apply-attempt-${res.attempt_id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "apply_attempts",
-            filter: `id=eq.${res.attempt_id}`,
-          },
-          (payload: any) => {
-            const data = payload.new;
-            if (data.status === "running") {
-              setApplyStatus("Filling application form...");
-            } else if (data.status === "success") {
-              setApplyStatus("✅ Applied successfully!");
-              setTimeout(() => {
-                setApplying(false);
-                setApplyStatus(null);
-              }, 4000);
-              channel.unsubscribe();
-            } else if (data.status === "failed") {
-              setApplyStatus(`❌ Failed: ${data.error_msg || "Unknown error"}`);
-              setTimeout(() => {
-                setApplying(false);
-                setApplyStatus(null);
-              }, 5000);
-              channel.unsubscribe();
-            } else if (data.status === "manual_required") {
-              setApplyStatus("⚠️ Manual Intervention Required");
-              setTimeout(() => {
-                setApplying(false);
-                setApplyStatus(null);
-              }, 5000);
-              channel.unsubscribe();
-            }
-          }
-        )
-        .subscribe();
-
-      // Fallback polling
+      // Polling fallback (Supabase realtime removed — polling is the sole mechanism)
       let attempts = 0;
       const interval = setInterval(async () => {
         attempts++;
         if (attempts >= 20) { // 60s timeout
           clearInterval(interval);
-          channel.unsubscribe();
           setApplying(false);
           setApplyStatus(null);
           return;
@@ -284,7 +196,6 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
             if (current.status === "success") {
               setApplyStatus("✅ Applied successfully!");
               clearInterval(interval);
-              channel.unsubscribe();
               setTimeout(() => {
                 setApplying(false);
                 setApplyStatus(null);
@@ -292,7 +203,6 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
             } else if (current.status === "failed") {
               setApplyStatus(`❌ Failed: ${current.error_msg || "Unknown error"}`);
               clearInterval(interval);
-              channel.unsubscribe();
               setTimeout(() => {
                 setApplying(false);
                 setApplyStatus(null);
@@ -300,7 +210,6 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
             } else if (current.status === "manual_required") {
               setApplyStatus("⚠️ Manual Intervention Required");
               clearInterval(interval);
-              channel.unsubscribe();
               setTimeout(() => {
                 setApplying(false);
                 setApplyStatus(null);
@@ -308,9 +217,11 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
             }
           }
         } catch (e) {
-          console.error("Error fallback polling apply status:", e);
+          console.error("Error polling apply status:", e);
         }
       }, 3000);
+
+
 
     } catch (err: any) {
       console.error("Error starting auto-apply:", err);
@@ -409,7 +320,7 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
       <div className={`absolute left-0 top-0 bottom-0 w-1 ${scoreStyle.bg.replace("/10", "")} opacity-80`} />
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-6">
+      <div className="flex flex-col gap-4 mb-6">
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-3 flex-wrap">
             <Link href={`/jobs/${currentJob.id}`}>
@@ -417,13 +328,16 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
                 {currentJob.title}
               </h3>
             </Link>
-            <span className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest border shadow-sm ${scoreStyle.bg} ${scoreStyle.text} ${scoreStyle.border}`}>
+            <span 
+              title="Holistic AI evaluation of your career trajectory and seniority. (Different from strict ATS Keyword Score)"
+              className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest border shadow-sm ${scoreStyle.bg} ${scoreStyle.text} ${scoreStyle.border}`}
+            >
               {currentJob.score}/10 Fit
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm font-semibold text-[var(--muted-foreground)]">
             <span className="flex items-center gap-1.5 bg-[var(--background)] px-3 py-1.5 rounded-lg border border-[var(--border)]">
-              <Briefcase className="w-4 h-4 text-indigo-400" /> {currentJob.company}
+              <Briefcase className="w-4 h-4 text-indigo-400" /> {(currentJob.company && currentJob.company !== "nan") ? currentJob.company : "Unknown Company"}
             </span>
             <span className="flex items-center gap-1.5 bg-[var(--background)] px-3 py-1.5 rounded-lg border border-[var(--border)]">
               <MapPin className="w-4 h-4 text-rose-400" /> {currentJob.location || "Remote"}
@@ -435,77 +349,104 @@ export function JobCard({ job, index, onTailorSuccess }: { job: Job; index: numb
             )}
           </div>
           
-          {/* ATS Overlap Heatmap & Gap Analysis */}
-          {(currentJob.found_skills?.length || currentJob.missing_skills?.length) ? (
-            <div className="mt-6 flex flex-col gap-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Target className="w-4 h-4 text-indigo-400" />
-                <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)]">
-                  ATS Overlap Heatmap
-                </span>
-                {currentJob.score !== undefined && (
-                  <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-md ${
-                    currentJob.score >= 8 ? "bg-emerald-500/10 text-emerald-500" : 
-                    currentJob.score >= 4 ? "bg-amber-500/10 text-amber-500" : 
-                    "bg-rose-500/10 text-rose-500"
-                  }`}>
-                    {currentJob.score * 10}% ATS Match
-                  </span>
+          {/* Insights Toggle Button */}
+          {(currentJob.found_skills?.length || currentJob.missing_skills?.length || currentJob.status === "rejected") && (
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="mt-4 flex items-center gap-2 text-xs font-bold text-indigo-500 hover:text-indigo-400 transition-colors"
+            >
+              <Target className="w-4 h-4" />
+              {showDetails ? "Hide Insights & Analysis" : "View ATS Insights & Coach"}
+            </button>
+          )}
+
+          <AnimatePresence>
+            {showDetails && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                {/* ATS Overlap Heatmap & Gap Analysis */}
+                {(currentJob.found_skills?.length || currentJob.missing_skills?.length) ? (
+                  <div className="mt-4 flex flex-col gap-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Target className="w-4 h-4 text-indigo-400" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)]">
+                        ATS Overlap Heatmap
+                      </span>
+                      {currentJob.score !== undefined && (
+                        <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-md ${
+                          currentJob.score >= 8 ? "bg-emerald-500/10 text-emerald-500" : 
+                          currentJob.score >= 4 ? "bg-amber-500/10 text-amber-500" : 
+                          "bg-rose-500/10 text-rose-500"
+                        }`}>
+                          {currentJob.score * 10}% ATS Match
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Found Skills (Git Addition Style) */}
+                      <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
+                        <h4 className="text-xs font-bold text-emerald-500 uppercase mb-3 flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4" /> Profile Overlap
+                        </h4>
+                        <div className="space-y-2">
+                          {currentJob.found_skills?.map((skill) => (
+                            <div key={skill} className="flex justify-between items-center text-sm font-medium">
+                              <span className="text-emerald-400">+{skill}</span>
+                              <span className="text-emerald-500/30 text-xs tracking-[0.1em]">████████</span>
+                            </div>
+                          ))}
+                          {(!currentJob.found_skills || currentJob.found_skills.length === 0) && (
+                            <span className="text-xs text-[var(--muted-foreground)]">No matching skills found.</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Missing Skills (Git Deletion Style) */}
+                      <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4">
+                        <h4 className="text-xs font-bold text-rose-500 uppercase mb-3 flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4" /> Gap Analysis
+                        </h4>
+                        <div className="space-y-2">
+                          {currentJob.missing_skills?.map((skill) => (
+                            <div key={skill} className="flex justify-between items-center text-sm font-medium">
+                              <span className="text-rose-400">-{skill}</span>
+                              <span className="text-rose-500/30 text-xs tracking-[0.1em]">████░░░░</span>
+                            </div>
+                          ))}
+                          {(!currentJob.missing_skills || currentJob.missing_skills.length === 0) && (
+                            <span className="text-xs text-[var(--muted-foreground)]">No missing skills detected!</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* AI Career Coach */}
+                {currentJob.status !== "rejected" && (
+                  <div className="mt-4">
+                    <AICareerCoach jobId={currentJob.id} missingSkills={currentJob.missing_skills} />
+                  </div>
                 )}
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Found Skills (Git Addition Style) */}
-                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
-                  <h4 className="text-xs font-bold text-emerald-500 uppercase mb-3 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4" /> Profile Overlap
-                  </h4>
-                  <div className="space-y-2">
-                    {currentJob.found_skills?.map((skill) => (
-                      <div key={skill} className="flex justify-between items-center text-sm font-medium">
-                        <span className="text-emerald-400">+{skill}</span>
-                        <span className="text-emerald-500/30 text-xs tracking-[0.1em]">████████</span>
-                      </div>
-                    ))}
-                    {(!currentJob.found_skills || currentJob.found_skills.length === 0) && (
-                      <span className="text-xs text-[var(--muted-foreground)]">No matching skills found.</span>
-                    )}
+
+                {/* Rejection Analysis */}
+                {currentJob.status === "rejected" && (
+                  <div className="mt-4">
+                    <RejectionAnalysis jobId={currentJob.id} />
                   </div>
-                </div>
-
-                {/* Missing Skills (Git Deletion Style) */}
-                <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4">
-                  <h4 className="text-xs font-bold text-rose-500 uppercase mb-3 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4" /> Gap Analysis
-                  </h4>
-                  <div className="space-y-2">
-                    {currentJob.missing_skills?.map((skill) => (
-                      <div key={skill} className="flex justify-between items-center text-sm font-medium">
-                        <span className="text-rose-400">-{skill}</span>
-                        <span className="text-rose-500/30 text-xs tracking-[0.1em]">████░░░░</span>
-                      </div>
-                    ))}
-                    {(!currentJob.missing_skills || currentJob.missing_skills.length === 0) && (
-                      <span className="text-xs text-[var(--muted-foreground)]">No missing skills detected!</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {/* AI Career Coach */}
-          {currentJob.status !== "rejected" && (
-            <AICareerCoach jobId={currentJob.id} missingSkills={currentJob.missing_skills} />
-          )}
-
-          {/* Rejection Analysis */}
-          {currentJob.status === "rejected" && (
-            <RejectionAnalysis jobId={currentJob.id} />
-          )}
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-start md:justify-end shrink-0 mt-4 md:mt-0">
+        {/* Action Bar */}
+        <div className="flex flex-wrap items-center gap-3 w-full justify-start border-t border-[var(--border)] pt-4 mt-2">
           <a href={currentJob.url} target="_blank" rel="noopener noreferrer"
             className="bg-[var(--secondary)] hover:bg-[var(--border)] text-[var(--foreground)] p-3 rounded-xl transition-all"
             title="View Original Posting">

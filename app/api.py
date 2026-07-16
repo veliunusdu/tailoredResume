@@ -22,7 +22,7 @@ from app.db import (
     get_apply_attempt,
     init_db,
 )
-from app.resumes import (
+from app.services.resume import (
     save_resume,
     get_resumes,
     get_resume_by_id,
@@ -69,6 +69,38 @@ def on_startup():
 def health():
     """Public health check endpoint (no auth required)."""
     return {"status": "ok", "version": "3.0.0"}
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _get_job_with_description(job_id: str, user_id: str) -> dict:
+    from app.db import get_job_by_id
+    job = get_job_by_id(job_id, user_id=user_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+        
+    desc = job.get("description", "")
+    if not desc or len(desc) < 100:
+        url = job.get("url")
+        if url:
+            from app.enrich import enrich_description
+            from app.db import save_job_description
+            import logging
+            logging.getLogger("app.api").info(f"Fetching description on-the-fly for job {job_id} from {url}")
+            new_desc = enrich_description(url)
+            if new_desc:
+                save_job_description(job_id, new_desc, user_id=user_id)
+                job["description"] = new_desc
+                # Re-trigger skill analysis background task
+                from app.tasks import enrich_pipeline_task
+                enrich_pipeline_task.delay(job_id, user_id)
+                
+    if not job.get("description"):
+        raise HTTPException(
+            status_code=400,
+            detail="Job description is empty and could not be retrieved from the URL."
+        )
+    return job
 
 
 # ── Job Endpoints ─────────────────────────────────────────────────────────────
@@ -137,6 +169,18 @@ async def ingest_job_listing_async(
 def get_jobs(user_id: str = Depends(get_current_user)):
     """Fetch all scored jobs for the authenticated user, sorted by score descending."""
     return get_all_scored_jobs(user_id=user_id)
+
+
+@app.get("/jobs/{job_id}", response_model=Job, tags=["Jobs"])
+def get_job(
+    job_id: str = Path(..., description="The unique ID of the job"),
+    user_id: str = Depends(get_current_user),
+):
+    """Fetch a single job by ID for the authenticated user."""
+    job = get_job_by_id(job_id, user_id=user_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
 
 
 @app.get("/stats", response_model=Stats, tags=["Jobs"])
@@ -227,15 +271,10 @@ async def get_job_keywords(
     user_id: str = Depends(get_current_user),
 ):
     """Analyze keywords for a job against the user's best-matching resume."""
-    job = get_job_by_id(job_id, user_id=user_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = _get_job_with_description(job_id, user_id=user_id)
+    desc = job["description"]
 
-    desc = job.get("description", "")
-    if not desc:
-        raise HTTPException(status_code=400, detail="Job has no description to analyze.")
-
-    from app.resumes import get_best_resume
+    from app.services.resume import get_best_resume
     resume_name, base_resume = get_best_resume(user_id=user_id, job_description=desc)
     if not base_resume:
         raise HTTPException(
@@ -253,15 +292,10 @@ async def get_salary_insights(
     user_id: str = Depends(get_current_user),
 ):
     """Analyze the job and user's resume to generate salary negotiation insights."""
-    job = get_job_by_id(job_id, user_id=user_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = _get_job_with_description(job_id, user_id=user_id)
+    desc = job["description"]
 
-    desc = job.get("description", "")
-    if not desc:
-        raise HTTPException(status_code=400, detail="Job has no description to analyze.")
-
-    from app.resumes import get_best_resume
+    from app.services.resume import get_best_resume
     resume_name, base_resume = get_best_resume(user_id=user_id, job_description=desc)
     if not base_resume:
         raise HTTPException(status_code=400, detail="No resume found. Please upload a resume first.")
@@ -277,15 +311,10 @@ async def get_job_roadmap(
     user_id: str = Depends(get_current_user),
 ):
     """Generate an actionable learning roadmap based on missing skills."""
-    job = get_job_by_id(job_id, user_id=user_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = _get_job_with_description(job_id, user_id=user_id)
+    desc = job["description"]
 
-    desc = job.get("description", "")
-    if not desc:
-        raise HTTPException(status_code=400, detail="Job has no description to analyze.")
-
-    from app.resumes import get_best_resume
+    from app.services.resume import get_best_resume
     resume_name, base_resume = get_best_resume(user_id=user_id, job_description=desc)
     if not base_resume:
         raise HTTPException(
@@ -311,15 +340,10 @@ async def get_job_rejection_analysis(
     user_id: str = Depends(get_current_user),
 ):
     """Generate a candid analysis of why the user was rejected."""
-    job = get_job_by_id(job_id, user_id=user_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = _get_job_with_description(job_id, user_id=user_id)
+    desc = job["description"]
 
-    desc = job.get("description", "")
-    if not desc:
-        raise HTTPException(status_code=400, detail="Job has no description to analyze.")
-
-    from app.resumes import get_best_resume
+    from app.services.resume import get_best_resume
     resume_name, base_resume = get_best_resume(user_id=user_id, job_description=desc)
     if not base_resume:
         raise HTTPException(
@@ -343,12 +367,9 @@ async def get_company_research(
     user_id: str = Depends(get_current_user),
 ):
     """Generate a dossier on the company for the given job."""
-    job = get_job_by_id(job_id, user_id=user_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
+    job = _get_job_with_description(job_id, user_id=user_id)
     company = job.get("company", "")
-    desc = job.get("description", "")
+    desc = job["description"]
     
     if not company:
         raise HTTPException(status_code=400, detail="Job has no company name.")
@@ -363,18 +384,13 @@ async def get_job_interview_questions(
     user_id: str = Depends(get_current_user),
 ):
     """Generate tailored interview questions for a job."""
-    job = get_job_by_id(job_id, user_id=user_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    desc = job.get("description", "")
-    if not desc:
-        raise HTTPException(status_code=400, detail="Job has no description to analyze.")
+    job = _get_job_with_description(job_id, user_id=user_id)
+    desc = job["description"]
 
     if job.get("interview_questions"):
         return job["interview_questions"]
 
-    from app.resumes import get_best_resume
+    from app.services.resume import get_best_resume
     resume_name, base_resume = get_best_resume(user_id=user_id, job_description=desc)
     if not base_resume:
         raise HTTPException(
@@ -394,15 +410,10 @@ async def grade_interview_answer_endpoint(
     user_id: str = Depends(get_current_user),
 ):
     """Grade a candidate's answer to an interview question."""
-    job = get_job_by_id(job_id, user_id=user_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+    job = _get_job_with_description(job_id, user_id=user_id)
+    desc = job["description"]
 
-    desc = job.get("description", "")
-    if not desc:
-        raise HTTPException(status_code=400, detail="Job has no description.")
-
-    from app.resumes import get_best_resume
+    from app.services.resume import get_best_resume
     resume_name, base_resume = get_best_resume(user_id=user_id, job_description=desc)
     if not base_resume:
         raise HTTPException(status_code=400, detail="No resume found.")
@@ -669,6 +680,9 @@ async def chat_search_intent_endpoint(payload: dict, user_id: str = Depends(get_
         
     if intent.get("exclude_titles"):
         current_config["exclude_titles"] = intent["exclude_titles"]
+        
+    if intent.get("visa_sponsorship") is not None:
+        current_config["visa_sponsorship"] = intent["visa_sponsorship"]
         
     if intent.get("notes"):
         current_config["profile_notes"] = intent["notes"]

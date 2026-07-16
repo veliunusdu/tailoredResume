@@ -1,33 +1,56 @@
-import { createClient } from "@/utils/supabase/server";
-import { safeAuth } from "@/utils/safeAuth";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { apiGet } from "@/lib/api";
+import { useSafeAuth } from "@/hooks/useSafeAuth";
+import { Job } from "@/types";
 
-// In Next.js 15+, page params are a Promise
-export default async function JobDashboardPage(props: { params: Promise<{ id: string }> }) {
-  const { userId } = await safeAuth();
-  if (!userId) {
-    redirect("/sign-in");
+// Client component for fetching and rendering ATS score
+import { AtsScorePanel } from "./AtsScorePanel";
+import { RoadmapPanel } from "./RoadmapPanel";
+import { InterviewSimulator } from "./InterviewSimulator";
+import { CompanyDossier } from "./CompanyDossier";
+import { TailorPanel } from "./TailorPanel";
+import { SalaryInsightsPanel } from "./SalaryInsightsPanel";
+
+export default function JobDashboardPage() {
+  const { getToken } = useSafeAuth();
+  const params = useParams<{ id: string }>();
+  const id = params?.id;
+
+  const [job, setJob] = useState<Job | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    const load = async () => {
+      try {
+        const data = await apiGet<Job>(`/jobs/${id}`, getToken);
+        setJob(data);
+      } catch (e: any) {
+        setError(e.message || "Job not found.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id, getToken]);
+
+  if (loading) {
+    return (
+      <div className="p-12 flex justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+      </div>
+    );
   }
-
-  const { id } = await props.params;
-  const supabase = await createClient();
-
-  const { data: job, error } = await supabase
-    .from("jobs")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", userId)
-    .single();
 
   if (error || !job) {
-    return <div className="p-12 text-center text-red-500">Job not found.</div>;
+    return <div className="p-12 text-center text-red-500">{error || "Job not found."}</div>;
   }
-
-  // We can fetch the keywords analysis from the backend, but since it requires an LLM call,
-  // we will fetch it client-side to show a loading state, OR we can fetch it here if we want to block render.
-  // Wait, let's do a client-side component for the ATS score so it doesn't block page load!
 
   return (
     <div className="container max-w-5xl mx-auto py-12 px-4 space-y-8">
@@ -50,11 +73,10 @@ export default async function JobDashboardPage(props: { params: Promise<{ id: st
               {job.description}
             </div>
           </div>
-          
+
           <CompanyDossier jobId={job.id} />
-          
           <RoadmapPanel jobId={job.id} />
-          
+
           <div className="pt-8 border-t border-[var(--border)]">
             <h2 className="text-xl font-bold mb-4 text-[var(--foreground)]">Interview Preparation</h2>
             <InterviewSimulator jobId={job.id} />
@@ -70,11 +92,3 @@ export default async function JobDashboardPage(props: { params: Promise<{ id: st
     </div>
   );
 }
-
-// Client component for fetching and rendering ATS score
-import { AtsScorePanel } from "./AtsScorePanel";
-import { RoadmapPanel } from "./RoadmapPanel";
-import { InterviewSimulator } from "./InterviewSimulator";
-import { CompanyDossier } from "./CompanyDossier";
-import { TailorPanel } from "./TailorPanel";
-import { SalaryInsightsPanel } from "./SalaryInsightsPanel";

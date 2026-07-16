@@ -101,3 +101,18 @@ class InterviewAnswerPayload(BaseModel):
 
 class TailorPayload(BaseModel):
     tone_style: str = "Professional"
+
+class UnifiedSearchContext(BaseModel):
+    user_id: str
+    resume_summary: Optional[str] = None
+    structured_resume_data: Optional[dict] = None
+    
+    # Prompt-driven preferences (can override or combine with resume)
+    queries: List[str] = Field(default_factory=list)
+    locations: List[str] = Field(default_factory=list)
+    is_remote: bool = False
+    boards: List[str] = Field(default_factory=list)
+    exclude_titles: List[str] = Field(default_factory=list)
+    seniority_levels: List[str] = Field(default_factory=list)
+    visa_sponsorship: Optional[bool] = None
+    profile_notes: Optional[str] = None

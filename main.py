@@ -30,23 +30,18 @@ def main():
     if args.command == "init":
         run_init()
     elif args.command == "reset-db":
-        from app.db import get_connection
-        print("⚠️ Dropping all PostgreSQL tables...")
+        import os
+        from pathlib import Path
+        print("⚠️ Deleting local SQLite database...")
+        db_path = Path(__file__).resolve().parent / "app.db"
         try:
-            with get_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        DROP TABLE IF EXISTS jobs CASCADE;
-                        DROP TABLE IF EXISTS source_metrics CASCADE;
-                        DROP TABLE IF EXISTS apply_attempts CASCADE;
-                        DROP TABLE IF EXISTS resumes CASCADE;
-                        DROP TABLE IF EXISTS user_search_config CASCADE;
-                        DROP TABLE IF EXISTS task_progress CASCADE;
-                    """)
-                conn.commit()
-            print("✅ Database reset complete. The schema will be recreated on the next run.")
+            if db_path.exists():
+                os.remove(db_path)
+                print("✅ Database reset complete. The schema will be recreated on the next run.")
+            else:
+                print("ℹ️ Database file does not exist. Nothing to reset.")
         except Exception as e:
-            print(f"❌ Failed to reset PostgreSQL database: {e}")
+            print(f"❌ Failed to reset database: {e}")
     elif args.command == "run":
         from app.agent import run as run_agent
         run_agent(args.user_id)

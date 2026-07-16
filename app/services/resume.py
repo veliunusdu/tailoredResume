@@ -1,15 +1,13 @@
 """
-Resume storage and retrieval using the PostgreSQL resumes table.
+Resume storage and retrieval using the SQLite resumes table.
 
-Replaces the local DATA_DIR/*.md glob pattern with proper per-user DB storage.
-Supports uploading markdown text directly and optionally storing an S3/Supabase path.
+Supports uploading markdown text directly and optionally storing a local/cloud path.
 """
 from __future__ import annotations
 
+import json
 import time
 import uuid
-
-import psycopg2.extras
 
 from app.db import get_connection
 from app.logger import get_logger
@@ -28,9 +26,8 @@ def save_resume(
     """
     Save a resume for a user. Returns the new resume ID.
     `content` should be plain text / markdown extracted from the uploaded file.
-    `storage_path` is an optional URL to the raw file in cloud storage.
+    `storage_path` is an optional path/URL to the raw file.
     """
-    import json
     from app.llm import extract_structured_profile, embed_text
 
     resume_id = str(uuid.uuid4())
@@ -46,11 +43,16 @@ def save_resume(
         embedding = embed_text(structured_json)
 
     with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO resumes (id, user_id, filename, content, structured_data, embedding, storage_path, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """, (resume_id, user_id, filename, content, structured_json, json.dumps(embedding) if embedding else None, storage_path, now))
+        conn.execute("""
+            INSERT INTO resumes (id, user_id, filename, content, structured_data, embedding, storage_path, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            resume_id, user_id, filename, content,
+            structured_json,
+            json.dumps(embedding) if embedding else None,
+            storage_path, now,
+        ))
+
     _logger.info("✅ Saved resume '%s' for user %s (id=%s)", filename, user_id, resume_id)
     return resume_id
 
@@ -58,38 +60,54 @@ def save_resume(
 def get_resumes(user_id: str) -> list[dict]:
     """Return all resumes for a user (without the full content to keep payload small)."""
     with get_connection(user_id) as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("""
-                SELECT id, user_id, filename, storage_path, created_at,
-                       LEFT(content, 200) AS preview, structured_data
-                FROM resumes
-                WHERE user_id = %s
-                ORDER BY created_at DESC
-            """, (user_id,))
-            return [dict(row) for row in cur.fetchall()]
+        rows = conn.execute("""
+            SELECT id, user_id, filename, storage_path, created_at,
+                   SUBSTR(content, 1, 200) AS preview, structured_data
+            FROM resumes
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+        """, (user_id,)).fetchall()
+        result = []
+        for row in rows:
+            d = dict(row)
+            sd = d.get("structured_data")
+            if isinstance(sd, str):
+                try:
+                    d["structured_data"] = json.loads(sd)
+                except Exception:
+                    pass
+            result.append(d)
+        return result
 
 
 def get_resume_by_id(resume_id: str, user_id: str) -> dict | None:
     """Return a single resume including its full content, scoped to this user."""
     with get_connection(user_id) as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM resumes WHERE id = %s AND user_id = %s",
-                (resume_id, user_id),
-            )
-            row = cur.fetchone()
-            return dict(row) if row else None
+        row = conn.execute(
+            "SELECT * FROM resumes WHERE id = ? AND user_id = ?",
+            (resume_id, user_id),
+        ).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        for key in ("structured_data", "embedding"):
+            val = d.get(key)
+            if isinstance(val, str):
+                try:
+                    d[key] = json.loads(val)
+                except Exception:
+                    pass
+        return d
 
 
 def delete_resume(resume_id: str, user_id: str) -> bool:
     """Delete a resume. Returns True if deleted, False if not found."""
     with get_connection(user_id) as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "DELETE FROM resumes WHERE id = %s AND user_id = %s",
-                (resume_id, user_id),
-            )
-            deleted = cur.rowcount > 0
+        conn.execute(
+            "DELETE FROM resumes WHERE id = ? AND user_id = ?",
+            (resume_id, user_id),
+        )
+        deleted = conn.execute("SELECT changes()").fetchone()[0] > 0
     if deleted:
         _logger.info("🗑️  Deleted resume %s for user %s", resume_id, user_id)
     return deleted
@@ -104,19 +122,30 @@ def get_best_resume(user_id: str, job_description: str) -> tuple[str | None, str
     Returns (filename, content) or (None, None) if no resumes exist.
     """
     with get_connection(user_id) as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                "SELECT id, filename, content, structured_data FROM resumes WHERE user_id = %s ORDER BY created_at DESC",
-                (user_id,),
-            )
-            resumes = [dict(r) for r in cur.fetchall()]
+        rows = conn.execute(
+            "SELECT id, filename, content, structured_data FROM resumes WHERE user_id = ? ORDER BY created_at DESC",
+            (user_id,),
+        ).fetchall()
+        resumes = []
+        for r in rows:
+            d = dict(r)
+            sd = d.get("structured_data")
+            if isinstance(sd, str):
+                try:
+                    d["structured_data"] = json.loads(sd)
+                except Exception:
+                    pass
+            resumes.append(d)
 
     if not resumes:
         return None, None
 
     if len(resumes) == 1:
-        import json
-        content_str = json.dumps(resumes[0]["structured_data"], indent=2) if resumes[0].get("structured_data") else resumes[0]["content"]
+        content_str = (
+            json.dumps(resumes[0]["structured_data"], indent=2)
+            if resumes[0].get("structured_data")
+            else resumes[0]["content"]
+        )
         return resumes[0]["filename"], content_str
 
     # Multiple resumes — use LLM to pick the best one
@@ -127,16 +156,17 @@ def get_best_resume(user_id: str, job_description: str) -> tuple[str | None, str
         from app.config import GEMINI_API_KEY, GEMINI_MODEL
 
         class ProfileSelection(BaseModel):
-            selected_filename: str = Field(
-                description="The filename of the most relevant resume"
-            )
+            selected_filename: str = Field(description="The filename of the most relevant resume")
             reason: str = Field(description="Brief reason for selection")
 
         profiles_summary = ""
         profiles_map: dict[str, str] = {}
         for r in resumes:
-            import json
-            content_str = json.dumps(r["structured_data"], indent=2) if r.get("structured_data") else r["content"]
+            content_str = (
+                json.dumps(r["structured_data"], indent=2)
+                if r.get("structured_data")
+                else r["content"]
+            )
             profiles_map[r["filename"]] = content_str
             profiles_summary += f"\n--- {r['filename']} ---\n{content_str[:800]}...\n"
 
@@ -164,15 +194,16 @@ AVAILABLE PROFILES (Excerpts):
 
         selected = response.selected_filename
         if selected in profiles_map:
-            _logger.info(
-                "🤖 AI selected profile '%s'. Reason: %s", selected, response.reason
-            )
+            _logger.info("🤖 AI selected profile '%s'. Reason: %s", selected, response.reason)
             return selected, profiles_map[selected]
 
         _logger.warning("AI selected unknown profile '%s', falling back to first.", selected)
     except Exception as exc:
         _logger.error("Failed to select best resume via LLM: %s. Using first.", exc)
 
-    import json
-    content_str = json.dumps(resumes[0]["structured_data"], indent=2) if resumes[0].get("structured_data") else resumes[0]["content"]
+    content_str = (
+        json.dumps(resumes[0]["structured_data"], indent=2)
+        if resumes[0].get("structured_data")
+        else resumes[0]["content"]
+    )
     return resumes[0]["filename"], content_str
