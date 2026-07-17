@@ -19,3 +19,4 @@ cryptography
 httpx
 instructor
 python-multipart
+sentence-transformers

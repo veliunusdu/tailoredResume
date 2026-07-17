@@ -106,7 +106,7 @@ def _get_job_with_description(job_id: str, user_id: str) -> dict:
 # ── Job Endpoints ─────────────────────────────────────────────────────────────
 
 @app.post("/v1/ingest/job-listing", status_code=201, tags=["Ingestion"])
-async def ingest_job_listing(
+def ingest_job_listing(
     payload: JobPayload,
     user_id: str = Depends(get_current_user)
 ):
@@ -144,7 +144,7 @@ async def ingest_job_listing(
         raise HTTPException(status_code=500, detail=f"Database insertion failed: {str(e)}")
 
 @app.post("/v1/ingest/job-listing-async", status_code=202, tags=["Ingestion"])
-async def ingest_job_listing_async(
+def ingest_job_listing_async(
     payload: JobPayload,
     user_id: str = Depends(get_current_user)
 ):
@@ -221,7 +221,7 @@ def get_stats(user_id: str = Depends(get_current_user)):
 # ── Job Status Endpoint ───────────────────────────────────────────────────────
 
 @app.put("/jobs/{job_id}/status", tags=["Jobs"])
-async def update_status_endpoint(
+def update_status_endpoint(
     payload: dict,
     job_id: str = Path(..., description="The unique ID of the job"),
     user_id: str = Depends(get_current_user),
@@ -243,7 +243,7 @@ async def update_status_endpoint(
 # ── Tailor Endpoints ──────────────────────────────────────────────────────────
 
 @app.post("/jobs/sync", tags=["Jobs"])
-async def sync_jobs(user_id: str = Depends(get_current_user)):
+def sync_jobs(user_id: str = Depends(get_current_user)):
     """Trigger the background agent to fetch, filter, and score new jobs for the user."""
     from app.tasks import sync_jobs_task
     task = sync_jobs_task.delay(user_id)
@@ -251,7 +251,7 @@ async def sync_jobs(user_id: str = Depends(get_current_user)):
 
 
 @app.post("/jobs/{job_id}/tailor", tags=["Tailoring"])
-async def tailor_job(
+def tailor_job(
     payload: TailorPayload,
     job_id: str = Path(..., description="The unique ID of the job"),
     user_id: str = Depends(get_current_user),
@@ -266,7 +266,7 @@ async def tailor_job(
 
 
 @app.get("/jobs/{job_id}/keywords", tags=["Tailoring"])
-async def get_job_keywords(
+def get_job_keywords(
     job_id: str = Path(..., description="The unique ID of the job"),
     user_id: str = Depends(get_current_user),
 ):
@@ -287,7 +287,7 @@ async def get_job_keywords(
 
 
 @app.get("/jobs/{job_id}/salary-insights", tags=["Intelligence"])
-async def get_salary_insights(
+def get_salary_insights(
     job_id: str = Path(..., description="The unique ID of the job"),
     user_id: str = Depends(get_current_user),
 ):
@@ -306,7 +306,7 @@ async def get_salary_insights(
 
 
 @app.get("/jobs/{job_id}/roadmap", tags=["Intelligence"])
-async def get_job_roadmap(
+def get_job_roadmap(
     job_id: str = Path(..., description="The unique ID of the job"),
     user_id: str = Depends(get_current_user),
 ):
@@ -335,7 +335,7 @@ async def get_job_roadmap(
 
 
 @app.get("/jobs/{job_id}/rejection-analysis", tags=["Intelligence"])
-async def get_job_rejection_analysis(
+def get_job_rejection_analysis(
     job_id: str = Path(..., description="The unique ID of the job"),
     user_id: str = Depends(get_current_user),
 ):
@@ -362,7 +362,7 @@ async def get_job_rejection_analysis(
     return analysis
 
 @app.get("/jobs/{job_id}/company-research", tags=["Intelligence"])
-async def get_company_research(
+def get_company_research(
     job_id: str = Path(..., description="The unique ID of the job"),
     user_id: str = Depends(get_current_user),
 ):
@@ -379,7 +379,7 @@ async def get_company_research(
     return dossier
 
 @app.get("/jobs/{job_id}/interview-questions", tags=["Tailoring"])
-async def get_job_interview_questions(
+def get_job_interview_questions(
     job_id: str = Path(..., description="The unique ID of the job"),
     user_id: str = Depends(get_current_user),
 ):
@@ -404,7 +404,7 @@ async def get_job_interview_questions(
 from app.schemas import InterviewAnswerPayload
 
 @app.post("/jobs/{job_id}/interview/grade", tags=["Intelligence"])
-async def grade_interview_answer_endpoint(
+def grade_interview_answer_endpoint(
     payload: InterviewAnswerPayload,
     job_id: str = Path(..., description="The unique ID of the job"),
     user_id: str = Depends(get_current_user),
@@ -426,7 +426,7 @@ async def grade_interview_answer_endpoint(
 # ── Apply Endpoints ───────────────────────────────────────────────────────────
 
 @app.post("/jobs/{job_id}/apply", response_model=ApplyResponse, tags=["Application"])
-async def apply_job(
+def apply_job(
     job_id: str = Path(..., description="The unique ID of the job"),
     dry_run: bool | None = Query(None, description="If true, fills the form but does NOT click submit"),
     user_id: str = Depends(get_current_user),
@@ -565,7 +565,7 @@ def list_resumes(user_id: str = Depends(get_current_user)):
 
 
 @app.post("/resumes", tags=["Resumes"])
-async def upload_resume(
+def upload_resume(
     filename: str = Query(..., description="Original filename of the resume"),
     content: str = Query(..., description="Plain text / markdown content of the resume"),
     user_id: str = Depends(get_current_user),
@@ -643,10 +643,31 @@ def remove_resume(
     return {"status": "deleted", "resume_id": resume_id}
 
 
+@app.post("/resumes/feedback", tags=["Resumes"])
+def submit_resume_feedback(
+    payload: dict,
+    user_id: str = Depends(get_current_user),
+):
+    """Submit user feedback on generated materials."""
+    from app.db import save_user_feedback
+    job_id = payload.get("job_id")
+    feedback_type = payload.get("feedback_type")
+    feedback_text = payload.get("feedback_text")
+    if not job_id or not feedback_type or not feedback_text:
+        raise HTTPException(status_code=400, detail="Missing required fields: job_id, feedback_type, feedback_text")
+        
+    feedback_id = save_user_feedback(
+        user_id=user_id,
+        job_id=job_id,
+        feedback_type=feedback_type,
+        feedback_text=feedback_text
+    )
+    return {"status": "saved", "feedback_id": feedback_id}
+
 # ── Search Config Endpoints ───────────────────────────────────────────────────
 
 @app.post("/search-config/parse-intent", tags=["Search Config"])
-async def parse_search_intent_endpoint(payload: dict, user_id: str = Depends(get_current_user)):
+def parse_search_intent_endpoint(payload: dict, user_id: str = Depends(get_current_user)):
     text = (payload.get("text") or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="text is required")
@@ -656,7 +677,7 @@ async def parse_search_intent_endpoint(payload: dict, user_id: str = Depends(get
 
 
 @app.post("/search-config/chat", tags=["Search Config"])
-async def chat_search_intent_endpoint(payload: dict, user_id: str = Depends(get_current_user)):
+def chat_search_intent_endpoint(payload: dict, user_id: str = Depends(get_current_user)):
     text = (payload.get("text") or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="text is required")
@@ -687,6 +708,15 @@ async def chat_search_intent_endpoint(payload: dict, user_id: str = Depends(get_
     if intent.get("notes"):
         current_config["profile_notes"] = intent["notes"]
         
+    # Phase 2 explicit fields
+    for field in (
+        "employment_types", "experience_levels", "target_countries", "preferred_roles",
+        "required_keywords", "excluded_keywords", "remote_only", "current_country",
+        "has_us_work_authorization", "requires_sponsorship", "student_status", "graduation_year"
+    ):
+        if intent.get(field) is not None:
+            current_config[field] = intent[field]
+            
     saved = save_search_config(user_id=user_id, config=current_config)
     return {"status": "saved", "config": saved, "intent": intent}
 

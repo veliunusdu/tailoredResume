@@ -33,6 +33,16 @@ interface SearchConfig {
   profile_notes: string;
   results_per_site: number;
   hours_old: number;
+  employment_types: string[];
+  experience_levels: string[];
+  remote_only: boolean;
+  target_countries: string[];
+  current_country: string;
+  has_us_work_authorization: boolean;
+  requires_sponsorship: boolean;
+  student_status: boolean;
+  graduation_year?: number;
+  visa_sponsorship: boolean;
 }
 
 const TIER_COLORS: Record<number, string> = {
@@ -209,6 +219,51 @@ export function SearchConfigPanel({ onConfigSaved }: { onConfigSaved?: () => voi
                       {title}
                     </span>
                   ))}
+                </div>
+              </div>
+            )}
+            
+            {(config.employment_types?.length > 0 || config.experience_levels?.length > 0 || config.student_status) && (
+              <div>
+                <h3 className="text-[10px] font-black text-[var(--muted-foreground)] uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span> Profile Details
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {config.student_status && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-600 border border-purple-500/20">
+                      🎓 Student {config.graduation_year ? `(Class of ${config.graduation_year})` : ""}
+                    </span>
+                  )}
+                  {config.employment_types?.map((type, i) => (
+                    <span key={`emp-${i}`} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                      💼 {type}
+                    </span>
+                  ))}
+                  {config.experience_levels?.map((lvl, i) => (
+                    <span key={`exp-${i}`} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                      📈 {lvl}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(config.visa_sponsorship || config.requires_sponsorship || config.has_us_work_authorization) && (
+              <div>
+                <h3 className="text-[10px] font-black text-[var(--muted-foreground)] uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Work Authorization
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {(config.visa_sponsorship || config.requires_sponsorship) && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                      🛂 Requires Sponsorship
+                    </span>
+                  )}
+                  {config.has_us_work_authorization && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                      🇺🇸 US Work Authorized
+                    </span>
+                  )}
                 </div>
               </div>
             )}

@@ -9,9 +9,10 @@ import { useSafeAuth } from "@/hooks/useSafeAuth";
 
 interface UnifiedLaunchpadProps {
   onSuccess: () => void;
+  onCancel?: () => void;
 }
 
-export function UnifiedLaunchpad({ onSuccess }: UnifiedLaunchpadProps) {
+export function UnifiedLaunchpad({ onSuccess, onCancel }: UnifiedLaunchpadProps) {
   const [prompt, setPrompt] = useState("");
   const [uploadedResume, setUploadedResume] = useState<any>(null);
   const [scouting, setScouting] = useState(false);
@@ -109,11 +110,21 @@ export function UnifiedLaunchpad({ onSuccess }: UnifiedLaunchpadProps) {
           </div>
 
           {/* Action Button */}
-          <div className="pt-4 border-t border-[var(--border)]">
+          <div className="pt-4 border-t border-[var(--border)] flex flex-col sm:flex-row gap-4">
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={scouting}
+                className="w-full sm:w-1/3 py-4 bg-[var(--secondary)] hover:bg-[var(--border)] text-[var(--foreground)] rounded-xl font-bold transition-all disabled:opacity-40"
+              >
+                Cancel
+              </button>
+            )}
             <button
               type="submit"
               disabled={scouting || !isFormValid}
-              className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold transition-all flex justify-center items-center gap-2 disabled:opacity-40 shadow-lg shadow-indigo-500/15"
+              className={`w-full ${onCancel ? 'sm:w-2/3' : ''} py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold transition-all flex justify-center items-center gap-2 disabled:opacity-40 shadow-lg shadow-indigo-500/15`}
             >
               {scouting ? (
                 <>

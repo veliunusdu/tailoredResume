@@ -140,13 +140,27 @@ def get_best_resume(user_id: str, job_description: str) -> tuple[str | None, str
     if not resumes:
         return None, None
 
-    if len(resumes) == 1:
+    # Deduplicate resumes by content to avoid unnecessary LLM calls
+    unique_resumes = []
+    seen_contents = set()
+    for r in resumes:
         content_str = (
-            json.dumps(resumes[0]["structured_data"], indent=2)
-            if resumes[0].get("structured_data")
-            else resumes[0]["content"]
+            json.dumps(r["structured_data"], indent=2)
+            if r.get("structured_data")
+            else r["content"]
         )
-        return resumes[0]["filename"], content_str
+        import hashlib
+        content_hash = hashlib.md5(content_str.encode("utf-8")).hexdigest()
+        if content_hash not in seen_contents:
+            seen_contents.add(content_hash)
+            # attach the computed string so we don't have to recompute it later
+            r["_content_str"] = content_str
+            unique_resumes.append(r)
+            
+    resumes = unique_resumes
+
+    if len(resumes) == 1:
+        return resumes[0]["filename"], resumes[0]["_content_str"]
 
     # Multiple resumes — use LLM to pick the best one
     try:
@@ -156,23 +170,19 @@ def get_best_resume(user_id: str, job_description: str) -> tuple[str | None, str
         from app.config import GEMINI_API_KEY, GEMINI_MODEL
 
         class ProfileSelection(BaseModel):
-            selected_filename: str = Field(description="The filename of the most relevant resume")
+            selected_id: str = Field(description="The profile ID of the most relevant resume")
             reason: str = Field(description="Brief reason for selection")
 
         profiles_summary = ""
-        profiles_map: dict[str, str] = {}
+        profiles_map: dict[str, dict] = {}
         for r in resumes:
-            content_str = (
-                json.dumps(r["structured_data"], indent=2)
-                if r.get("structured_data")
-                else r["content"]
-            )
-            profiles_map[r["filename"]] = content_str
-            profiles_summary += f"\n--- {r['filename']} ---\n{content_str[:800]}...\n"
+            content_str = r["_content_str"]
+            profiles_map[r["id"]] = r
+            profiles_summary += f"\n--- Profile ID: {r['id']} (Filename: {r['filename']}) ---\n{content_str[:800]}...\n"
 
         prompt = f"""
 You are an expert recruiter. Route the JOB DESCRIPTION to the most suitable candidate profile.
-Choose the ONE resume filename that best fits the job requirements.
+Choose the ONE Profile ID that best fits the job requirements.
 
 JOB DESCRIPTION:
 {job_description[:2000]}
@@ -192,18 +202,13 @@ AVAILABLE PROFILES (Excerpts):
             api_key=GEMINI_API_KEY,
         )
 
-        selected = response.selected_filename
+        selected = response.selected_id
         if selected in profiles_map:
-            _logger.info("🤖 AI selected profile '%s'. Reason: %s", selected, response.reason)
-            return selected, profiles_map[selected]
+            _logger.info("🤖 AI selected profile ID '%s'. Reason: %s", selected, response.reason)
+            return profiles_map[selected]["filename"], profiles_map[selected]["_content_str"]
 
-        _logger.warning("AI selected unknown profile '%s', falling back to first.", selected)
+        _logger.warning("AI selected unknown profile ID '%s', falling back to first.", selected)
     except Exception as exc:
         _logger.error("Failed to select best resume via LLM: %s. Using first.", exc)
 
-    content_str = (
-        json.dumps(resumes[0]["structured_data"], indent=2)
-        if resumes[0].get("structured_data")
-        else resumes[0]["content"]
-    )
-    return resumes[0]["filename"], content_str
+    return resumes[0]["filename"], resumes[0]["_content_str"]

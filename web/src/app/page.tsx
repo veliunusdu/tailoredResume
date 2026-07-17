@@ -278,10 +278,13 @@ export default function Dashboard() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
             >
-              <UnifiedLaunchpad onSuccess={() => {
-                fetchData();
-                setFlowState("dashboard");
-              }} />
+              <UnifiedLaunchpad 
+                onSuccess={() => {
+                  fetchData();
+                  setFlowState("dashboard");
+                }} 
+                onCancel={() => setFlowState("dashboard")}
+              />
             </motion.div>
           )}
 

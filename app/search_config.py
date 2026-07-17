@@ -32,7 +32,6 @@ DEFAULT_BOARDS = ["indeed", "linkedin", "glassdoor"]
 
 DEFAULT_EXCLUDE_TITLES = [
     "senior director", "VP ", "vice president", "chief",
-    "intern", "internship", "co-op",
 ]
 
 DEFAULT_RESULTS_PER_SITE = 20
@@ -51,13 +50,21 @@ def get_search_config(user_id: str) -> dict:
 
     if row:
         res = dict(row)
-        for key in ("queries", "locations", "boards", "exclude_titles", "seniority_levels"):
+        for key in ("queries", "locations", "boards", "exclude_titles", "seniority_levels",
+                    "employment_types", "experience_levels", "target_countries",
+                    "preferred_roles", "required_keywords", "excluded_keywords"):
             val = res.get(key)
             if isinstance(val, str):
                 try:
                     res[key] = json.loads(val)
                 except Exception:
                     pass
+        
+        # Ensure booleans/ints are properly cast if necessary
+        for key in ("remote_only", "has_us_work_authorization", "requires_sponsorship", "student_status", "visa_sponsorship"):
+            if key in res and res[key] is not None:
+                res[key] = bool(res[key])
+                
         return res
 
     return {
@@ -89,12 +96,34 @@ def save_search_config(user_id: str, config: dict) -> dict:
     hours_old        = int(config.get("hours_old", DEFAULT_HOURS_OLD))
     require_human    = int(config.get("require_human_confirmation", DEFAULT_REQUIRE_HUMAN_CONFIRMATION))
 
+    employment_types = json.dumps(config.get("employment_types", []))
+    experience_levels = json.dumps(config.get("experience_levels", []))
+    target_countries = json.dumps(config.get("target_countries", []))
+    preferred_roles = json.dumps(config.get("preferred_roles", []))
+    required_keywords = json.dumps(config.get("required_keywords", []))
+    excluded_keywords = json.dumps(config.get("excluded_keywords", []))
+    
+    remote_only = int(config.get("remote_only") or 0)
+    current_country = config.get("current_country", "")
+    has_us_work_authorization = int(config.get("has_us_work_authorization") or 0)
+    requires_sponsorship = int(config.get("requires_sponsorship") or 0)
+    student_status = int(config.get("student_status") or 0)
+    visa_sponsorship = int(config.get("visa_sponsorship") or 0)
+    graduation_year = config.get("graduation_year")
+    if graduation_year is not None:
+        graduation_year = int(graduation_year)
+
     with get_connection(user_id) as conn:
         conn.execute("""
             INSERT INTO user_search_config
                 (user_id, queries, locations, boards, exclude_titles, seniority_levels,
-                 profile_notes, results_per_site, hours_old, require_human_confirmation, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 profile_notes, results_per_site, hours_old, require_human_confirmation,
+                 employment_types, experience_levels, remote_only, target_countries,
+                 current_country, has_us_work_authorization, requires_sponsorship,
+                 student_status, graduation_year, preferred_roles, required_keywords,
+                 excluded_keywords, visa_sponsorship, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id) DO UPDATE SET
                 queries          = excluded.queries,
                 locations        = excluded.locations,
@@ -105,10 +134,27 @@ def save_search_config(user_id: str, config: dict) -> dict:
                 results_per_site = excluded.results_per_site,
                 hours_old        = excluded.hours_old,
                 require_human_confirmation = excluded.require_human_confirmation,
+                employment_types = excluded.employment_types,
+                experience_levels = excluded.experience_levels,
+                remote_only      = excluded.remote_only,
+                target_countries = excluded.target_countries,
+                current_country  = excluded.current_country,
+                has_us_work_authorization = excluded.has_us_work_authorization,
+                requires_sponsorship = excluded.requires_sponsorship,
+                student_status   = excluded.student_status,
+                graduation_year  = excluded.graduation_year,
+                preferred_roles  = excluded.preferred_roles,
+                required_keywords = excluded.required_keywords,
+                excluded_keywords = excluded.excluded_keywords,
+                visa_sponsorship = excluded.visa_sponsorship,
                 updated_at       = excluded.updated_at
         """, (
             user_id, queries, locations, boards, exclude_titles, seniority_levels,
-            profile_notes, results_per_site, hours_old, require_human, now,
+            profile_notes, results_per_site, hours_old, require_human,
+            employment_types, experience_levels, remote_only, target_countries,
+            current_country, has_us_work_authorization, requires_sponsorship,
+            student_status, graduation_year, preferred_roles, required_keywords,
+            excluded_keywords, visa_sponsorship, now,
         ))
 
     _logger.info("✅ Saved search config for user %s", user_id)
@@ -119,15 +165,42 @@ def build_searches_for_user(user_id: str) -> list[dict]:
     """Convert the user's config into search-dict list for the job-fetching pipeline."""
     ctx = build_unified_context(user_id)
     cfg = get_search_config(user_id)
-    limit: int = cfg.get("results_per_site") or DEFAULT_RESULTS_PER_SITE
+    # Triple the limit because we will filter aggressively later
+    base_limit: int = cfg.get("results_per_site") or DEFAULT_RESULTS_PER_SITE
+    limit = base_limit * 3
 
-    queries   = ctx.queries   if ctx.queries   else [q["query"]   for q in DEFAULT_QUERIES]
+    base_roles = cfg.get("preferred_roles", [])
+    if not base_roles:
+        base_roles = ctx.queries if ctx.queries else [q["query"] for q in DEFAULT_QUERIES]
+
+    employment_types = cfg.get("employment_types", [])
+    experience_levels = cfg.get("experience_levels", [])
+    
+    modifiers = []
+    for t in employment_types:
+        # job boards do better with "part time" instead of "part-time"
+        modifiers.append(t.replace("-", " "))
+    for l in experience_levels:
+        modifiers.append(l.replace("-", " "))
+        
+    focused_queries = []
+    if not modifiers:
+        focused_queries = base_roles
+    else:
+        for role in base_roles:
+            for mod in modifiers:
+                # e.g., "software engineer intern" or "backend developer part time"
+                focused_queries.append(f"{role} {mod}".strip())
+                
+    # Deduplicate
+    focused_queries = list(dict.fromkeys(focused_queries))
+
     locations = ctx.locations if ctx.locations else [l["location"] for l in DEFAULT_LOCATIONS]
     boards    = ctx.boards    if ctx.boards    else DEFAULT_BOARDS
 
     return [
         {"term": q, "location": loc, "limit": limit, "platforms": boards}
-        for q in queries
+        for q in focused_queries
         for loc in locations
     ]
 
@@ -162,6 +235,12 @@ def get_scoring_profile(user_id: str) -> dict:
         "profile_notes":    cfg.get("profile_notes", ""),
         "resume_summary":   resume_summary,
         "structured_data":  structured_data,
+        "visa_sponsorship": cfg.get("visa_sponsorship", 0),
+        "employment_types": cfg.get("employment_types", []),
+        "has_us_work_authorization": cfg.get("has_us_work_authorization", 0),
+        "requires_sponsorship": cfg.get("requires_sponsorship", 0),
+        "student_status": cfg.get("student_status", 0),
+        "target_countries": cfg.get("target_countries", []),
     }
 
 
@@ -193,8 +272,10 @@ def build_unified_context(user_id: str):
     queries = cfg.get("queries", [])
     query_names = [q["query"] for q in queries if isinstance(q, dict) and "query" in q]
 
-    if not query_names and structured_data and "role" in structured_data:
-        query_names = [structured_data["role"]]
+    if not query_names and structured_data:
+        role = structured_data.get("desired_role") or structured_data.get("role")
+        if role:
+            query_names = [role]
 
     return UnifiedSearchContext(
         user_id=user_id,

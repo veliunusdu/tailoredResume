@@ -95,50 +95,80 @@ def score_jobs_task(job_ids: list, user_id: str):
         
     resume_id = resumes[0]["id"]
     
+    from app.eligibility import check_eligibility
+    from app.search_config import get_search_config
+    
+    user_config = get_search_config(user_id)
+    
+    eligible_jobs = []
+    for job in jobs:
+        status = check_eligibility(job.get("description", ""), user_config)
+        if status == "ineligible":
+            result = {
+                "score": 0,
+                "verdict": "no",
+                "reason": "Failed deterministic rule-based eligibility checks (e.g. sponsorship required but unavailable)."
+            }
+            save_score(job["id"], result, user_id=user_id)
+            results.append(result)
+        else:
+            eligible_jobs.append(job)
+            
+    if not eligible_jobs:
+        return results
+        
+    jobs = eligible_jobs
+    job_ids = [j["id"] for j in jobs]
+    
     # Get pgvector similarities
     similarities = rank_jobs_with_vector(job_ids, resume_id, user_id)
     
-    if similarities and any(v > 0.0 for v in similarities.values()):
-        _logger.info("Using vector similarity for scoring.")
-        for job in jobs:
-            sim = similarities.get(job["id"], 0.0)
-            
-            # Map similarity (usually 0.0 to 1.0) to a 0-10 score
-            score_out_of_10 = max(0, min(10, int((sim - 0.6) * (10 / 0.3))))
-            
-            verdict = "no"
-            if score_out_of_10 >= 7:
-                verdict = "yes"
-            elif score_out_of_10 >= 4:
-                verdict = "maybe"
-                
+    if similarities and len(jobs) > 10:
+        # Drop bottom 25% of jobs based on vector similarity to save LLM tokens
+        jobs_with_sim = [(j, similarities.get(j["id"], 0.0)) for j in jobs]
+        jobs_with_sim.sort(key=lambda x: x[1], reverse=True)
+        keep_count = max(10, int(len(jobs) * 0.75))
+        
+        jobs = [j for j, sim in jobs_with_sim[:keep_count]]
+        for dropped_job, sim in jobs_with_sim[keep_count:]:
             result = {
-                "score": score_out_of_10,
-                "verdict": verdict,
-                "reason": f"AI Vector Similarity Match ({sim:.2f})"
+                "score": 0, 
+                "verdict": "no", 
+                "reason": "Filtered out by embedding shortlist to save AI evaluation tokens."
             }
-            
-            save_score(job["id"], result, user_id=user_id)
-            # Trigger enrichment background task for matches
-            if verdict in ("yes", "maybe"):
-                enrich_pipeline_task.delay(job["id"], user_id)
+            save_score(dropped_job["id"], result, user_id=user_id)
             results.append(result)
-    else:
-        _logger.warning("Vector embeddings missing or all zero. Falling back to LLM scoring.")
-        from app.llm import score_jobs_batch
-        from app.search_config import build_unified_context
-        import json
+
+    from app.llm import score_jobs_batch
+    from app.search_config import build_unified_context
+    
+    ctx = build_unified_context(user_id)
+    profile_data = ctx.model_dump()
+    
+    batch_results = score_jobs_batch(jobs, profile_data)
+    for job, res in zip(jobs, batch_results):
+        # Calculate hybrid weighted score
+        role = res.get("role_match", 0)
+        skills = res.get("skills_match", 0)
+        exp = res.get("experience_match", 0)
+        edu = res.get("education_match", 0)
         
-        ctx = build_unified_context(user_id)
-        # We pass the full UnifiedSearchContext dictionary representation to the LLM scoring
-        profile_data = ctx.model_dump()
+        vec_sim = similarities.get(job["id"], 0.0) if similarities else 0.0
+        project_rel = int(vec_sim * 100)
         
-        batch_results = score_jobs_batch(jobs, profile_data)
-        for job, res in zip(jobs, batch_results):
-            save_score(job["id"], res, user_id=user_id)
-            if res.get("verdict") in ("yes", "maybe"):
-                enrich_pipeline_task.delay(job["id"], user_id)
-            results.append(res)
+        # Hybrid formula: Role(20%), Skills(30%), Exp(20%), Project(20%), Edu(10%)
+        overall = int((role * 0.20) + (skills * 0.30) + (exp * 0.20) + (project_rel * 0.20) + (edu * 0.10))
+        
+        res["score"] = overall // 10  # map to 0-10 for UI compatibility
+        res["overall_score"] = overall
+        
+        if overall < 20:
+            res["verdict"] = "no"
+            
+        save_score(job["id"], res, user_id=user_id)
+        if res.get("verdict") in ("yes", "maybe"):
+            enrich_pipeline_task.delay(job["id"], user_id)
+        results.append(res)
             
     return results
 
