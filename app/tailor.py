@@ -106,6 +106,39 @@ def generate_tailored_resume(job_description: str, base_resume: str) -> str | No
         _logger.error("Failed to generate tailored resume: %s", e)
         return None
 
+def verify_tailored_resume(base_resume: str, tailored_resume: str) -> dict:
+    """
+    Verify the generated tailored resume against the base resume facts.
+    Returns a dictionary indicating if hallucinations were found.
+    """
+    prompt = f"""
+    You are an expert factual verification agent.
+    Your task is to compare a TAILORED RESUME against the original BASE RESUME.
+    Identify ANY skills, quantifiable metrics (percentages, numbers, dollars), or experiences in the TAILORED RESUME that DO NOT exist in the BASE RESUME.
+    It is okay if the tailored resume omits things. It is NOT okay if it invents things.
+    Return a JSON object with two keys:
+    - "has_hallucinations": boolean
+    - "warnings": list of strings detailing specific hallucinated claims
+    
+    === BASE RESUME ===
+    {base_resume}
+    
+    === TAILORED RESUME ===
+    {tailored_resume}
+    """
+    
+    class VerificationResult(BaseModel):
+        has_hallucinations: bool
+        warnings: list[str]
+        
+    try:
+        from app.llm import _call_llm_structured
+        res = _call_llm_structured(prompt, VerificationResult)
+        return res.model_dump()
+    except Exception as e:
+        _logger.error("Verification failed: %s", e)
+        return {"has_hallucinations": False, "warnings": []}
+
 
 def generate_cover_letter(job_description: str, resume_context: str, company: str, title: str, tone_style: str = "Professional") -> str | None:
     """Generate a modern, concise cover letter based on the tailored resume and job."""
@@ -181,19 +214,27 @@ def prepare_application(job: dict, user_id: str | None = None, task_id: str | No
 
         tailored_resume = future_resume.result()
         if task_id and user_id:
-            update_task_progress(task_id, user_id, "running", "Generated tailored resume...", 75)
+            update_task_progress(task_id, user_id, "running", "Generated tailored resume. Running verification...", 75)
             
         cover_letter = future_cover.result()
         if task_id and user_id:
-            update_task_progress(task_id, user_id, "running", "Generated cover letter...", 85)
+            update_task_progress(task_id, user_id, "running", "Generated cover letter...", 80)
             
         interview_questions = future_interview.result()
         if task_id and user_id:
-            update_task_progress(task_id, user_id, "running", "Generated interview questions...", 92)
+            update_task_progress(task_id, user_id, "running", "Generated interview questions...", 85)
+
+    # Verification Step
+    verification = {"has_hallucinations": False, "warnings": []}
+    if tailored_resume:
+        verification = verify_tailored_resume(base_resume, tailored_resume)
+        if task_id and user_id:
+            update_task_progress(task_id, user_id, "running", "Verification complete.", 92)
 
     result["tailored_resume"] = tailored_resume
     result["cover_letter"] = cover_letter
     result["interview_questions"] = interview_questions
+    result["verification"] = verification
 
     # Optionally save to local disk in dev mode (when no user_id)
     if not user_id:

@@ -32,14 +32,32 @@ def main():
     elif args.command == "reset-db":
         import os
         from pathlib import Path
-        print("⚠️ Deleting local SQLite database...")
-        db_path = Path(__file__).resolve().parent / "app.db"
+        print("⚠️ Deleting local SQLite database and temporary journal files...")
+        root_dir = Path(__file__).resolve().parent
+        db_path = root_dir / "app.db"
+        wal_path = root_dir / "app.db-wal"
+        shm_path = root_dir / "app.db-shm"
+        
+        deleted_any = False
         try:
-            if db_path.exists():
-                os.remove(db_path)
+            for path in [db_path, wal_path, shm_path]:
+                if path.exists():
+                    os.remove(path)
+                    print(f"🗑️ Deleted {path.name}")
+                    deleted_any = True
+            
+            if deleted_any:
                 print("✅ Database reset complete. The schema will be recreated on the next run.")
             else:
-                print("ℹ️ Database file does not exist. Nothing to reset.")
+                print("ℹ️ No database files found to reset.")
+        except PermissionError as pe:
+            print(f"❌ Failed to reset database: {pe}")
+            print("\n👉 This error occurs because the SQLite database file is locked by a running process.")
+            print("Please stop all FastAPI backend servers, Celery workers/beats, or other processes holding a connection, then try again.")
+            print("\nTo quickly find and stop running Python/Celery services on Windows:")
+            print("  - Check your terminal windows running FastAPI ('python main.py api') or Celery and stop them (Ctrl+C).")
+            print("  - Or force-kill them from PowerShell:")
+            print("      Get-Process | Where-Object {$_.ProcessName -match 'python|celery'} | Stop-Process -Force")
         except Exception as e:
             print(f"❌ Failed to reset database: {e}")
     elif args.command == "run":

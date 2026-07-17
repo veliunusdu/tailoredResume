@@ -28,9 +28,9 @@ app.conf.update(
 from celery.schedules import crontab
 
 app.conf.beat_schedule = {
-    "bulk-ingest-every-4-hours": {
+    "bulk-ingest-twice-daily": {
         "task": "app.tasks.bulk_ingest_jobs_task",
-        "schedule": crontab(minute=0, hour="*/4"),
+        "schedule": crontab(minute=0, hour="0,12"),
     }
 }
 

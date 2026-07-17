@@ -29,37 +29,47 @@ def test_normalize_missing_fields():
 
 def test_filter_jobs_allowlist(mocker):
     mocker.patch("app.filters.get_search_config", return_value={
-        "queries": [{"query": "python"}, {"query": "intern"}, {"query": "data"}],
+        "queries": [{"query": "python"}, {"query": "django"}],
         "exclude_titles": []
     })
+    
+    dummy_desc = "x" * 201
+    
     jobs = [
-        {"title": "Python Developer", "tags": ["backend"]},
-        {"title": "Intern", "tags": []},
-        {"title": "Java Developer", "tags": ["data"]}
+        {"title": "Python Developer", "tags": [], "description": dummy_desc},
+        {"title": "Senior Django Eng", "tags": [], "description": dummy_desc},
+        {"title": "Frontend React", "tags": ["python"], "description": dummy_desc},
+        {"title": "Java Dev", "tags": [], "description": dummy_desc}
     ]
+    
     filtered = filter_jobs(jobs, "mock-user")
-    assert len(filtered) == 3
+    # All pass because allowlist is disabled
+    assert len(filtered) == 4
 
 def test_filter_jobs_blocklist(mocker):
     mocker.patch("app.filters.get_search_config", return_value={
-        "queries": [{"query": "python"}, {"query": "engineer"}],
-        "exclude_titles": ["senior", "lead"]
+        "queries": [],
+        "exclude_titles": ["senior", "manager"]
     })
+    
+    dummy_desc = "x" * 201
     jobs = [
-        {"title": "Senior Python Developer", "tags": ["backend"]},
-        {"title": "Lead Engineer", "tags": ["python"]},
-        {"title": "Junior Python Developer", "tags": ["backend"]}
+        {"title": "Python Developer", "tags": [], "description": dummy_desc},
+        {"title": "Senior Python Eng", "tags": [], "description": dummy_desc},
+        {"title": "Product Manager", "tags": [], "description": dummy_desc}
     ]
+    
     filtered = filter_jobs(jobs, "mock-user")
     assert len(filtered) == 1
-    assert filtered[0]["title"] == "Junior Python Developer"
+    assert filtered[0]["title"] == "Python Developer"
 
 def test_filter_jobs_case_insensitive(mocker):
     mocker.patch("app.filters.get_search_config", return_value={
         "queries": [{"query": "python"}],
         "exclude_titles": []
     })
-    jobs = [{"title": "PYTHON DEVELOPER", "tags": ["BACKEND"]}]
+    dummy_desc = "x" * 201
+    jobs = [{"title": "PYTHON DEVELOPER", "tags": ["BACKEND"], "description": dummy_desc}]
     filtered = filter_jobs(jobs, "mock-user")
     assert len(filtered) == 1
 

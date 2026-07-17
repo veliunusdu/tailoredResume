@@ -152,6 +152,19 @@ def init_db() -> None:
             results_per_site INTEGER DEFAULT 20,
             hours_old        INTEGER DEFAULT 72,
             require_human_confirmation INTEGER DEFAULT 1,
+            employment_types TEXT DEFAULT '[]',
+            experience_levels TEXT DEFAULT '[]',
+            remote_only      INTEGER DEFAULT 0,
+            target_countries TEXT DEFAULT '[]',
+            current_country  TEXT DEFAULT '',
+            has_us_work_authorization INTEGER DEFAULT 0,
+            requires_sponsorship INTEGER DEFAULT 0,
+            student_status   INTEGER DEFAULT 0,
+            graduation_year  INTEGER,
+            preferred_roles  TEXT DEFAULT '[]',
+            required_keywords TEXT DEFAULT '[]',
+            excluded_keywords TEXT DEFAULT '[]',
+            visa_sponsorship INTEGER DEFAULT 0,
             updated_at       REAL
         );
 
@@ -170,7 +183,42 @@ def init_db() -> None:
             is_verified         INTEGER DEFAULT 0,
             created_at          REAL
         );
+
+        CREATE TABLE IF NOT EXISTS user_feedback (
+            id              TEXT PRIMARY KEY,
+            user_id         TEXT NOT NULL,
+            job_id          TEXT NOT NULL,
+            feedback_type   TEXT NOT NULL,
+            feedback_text   TEXT NOT NULL,
+            created_at      REAL
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_user_feedback_user
+            ON user_feedback (user_id);
     """)
+    
+    # Auto-migrate existing user_search_config table to add new columns
+    new_columns = [
+        ("employment_types", "TEXT DEFAULT '[]'"),
+        ("experience_levels", "TEXT DEFAULT '[]'"),
+        ("remote_only", "INTEGER DEFAULT 0"),
+        ("target_countries", "TEXT DEFAULT '[]'"),
+        ("current_country", "TEXT DEFAULT ''"),
+        ("has_us_work_authorization", "INTEGER DEFAULT 0"),
+        ("requires_sponsorship", "INTEGER DEFAULT 0"),
+        ("student_status", "INTEGER DEFAULT 0"),
+        ("graduation_year", "INTEGER"),
+        ("preferred_roles", "TEXT DEFAULT '[]'"),
+        ("required_keywords", "TEXT DEFAULT '[]'"),
+        ("excluded_keywords", "TEXT DEFAULT '[]'"),
+        ("visa_sponsorship", "INTEGER DEFAULT 0"),
+    ]
+    for col_name, col_def in new_columns:
+        try:
+            conn.execute(f"ALTER TABLE user_search_config ADD COLUMN {col_name} {col_def}")
+        except sqlite3.OperationalError:
+            pass # Column already exists
+            
     conn.commit()
     _logger.info("✅ SQLite database schema ready at %s", _DB_PATH)
 
@@ -312,10 +360,48 @@ def save_selector_patch(broken_selector: str, patched_selector: str) -> None:
 
 def verify_selector_patch(broken_selector: str) -> None:
     with get_connection() as conn:
-        conn.execute(
-            "UPDATE selector_patches SET is_verified = 1 WHERE broken_selector = ?",
-            (broken_selector,),
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE selector_patches
+               SET is_verified = ?
+             WHERE broken_selector = ?
+            """,
+            (1, broken_selector),
         )
+
+# ── User Feedback ─────────────────────────────────────────────────────────────
+
+def save_user_feedback(user_id: str, job_id: str, feedback_type: str, feedback_text: str) -> str:
+    """Save user feedback for future learning."""
+    import uuid
+    import time
+    feedback_id = str(uuid.uuid4())
+    now = time.time()
+    with get_connection(user_id) as conn:
+        conn.execute(
+            """
+            INSERT INTO user_feedback (id, user_id, job_id, feedback_type, feedback_text, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (feedback_id, user_id, job_id, feedback_type, feedback_text, now)
+        )
+    return feedback_id
+
+def get_user_feedback(user_id: str, limit: int = 50) -> list[dict]:
+    """Retrieve user feedback."""
+    with get_connection(user_id) as conn:
+        rows = conn.execute(
+            """
+            SELECT * FROM user_feedback 
+            WHERE user_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (user_id, limit)
+        ).fetchall()
+        return _rows_to_list(rows)
+
 
 
 # ── Job Helpers ───────────────────────────────────────────────────────────────

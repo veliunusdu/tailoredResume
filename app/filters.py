@@ -41,6 +41,34 @@ def _normalize(raw: dict) -> dict:
 from typing import Any
 from app.search_config import get_search_config
 
+def deduplicate_jobs(jobs: list[dict]) -> list[dict]:
+    """
+    Deduplicate jobs by normalized company, title, and location.
+    If duplicates exist, keep the one with the longest description.
+    """
+    seen = {}
+    for job in jobs:
+        # Normalize strings for grouping
+        c = str(job.get("company", "")).strip().lower()
+        t = str(job.get("title", "")).strip().lower()
+        l = str(job.get("location", "")).strip().lower()
+        
+        # Remove common noisy suffixes from titles (e.g. " - Remote", " (M/F)")
+        t = t.split(" - ")[0].split(" (")[0].strip()
+        
+        key = (c, t, l)
+        
+        if key not in seen:
+            seen[key] = job
+        else:
+            # Keep the job with the longest description
+            existing_desc = len(str(seen[key].get("description", "")))
+            new_desc = len(str(job.get("description", "")))
+            if new_desc > existing_desc:
+                seen[key] = job
+                
+    return list(seen.values())
+
 def filter_jobs(jobs: list[dict], user_id: str, collector: Any = None) -> list[dict]:
     """
     Apply rule-based filtering + field normalization.
@@ -66,9 +94,20 @@ def filter_jobs(jobs: list[dict], user_id: str, collector: Any = None) -> list[d
             continue
 
         norm_job = _normalize(job)
-        if collector:
-            collector.add_filtered(norm_job["site"], 1)
+        
+        # Quality Filters: Drop jobs with empty or very short descriptions
+        desc = norm_job.get("description", "").strip()
+        if len(desc) < 200:
+            continue
+            
         filtered.append(norm_job)
 
-    return filtered
+    # Aggressive deduplication
+    final_jobs = deduplicate_jobs(filtered)
+    
+    if collector:
+        for j in final_jobs:
+            collector.add_filtered(j["site"], 1)
+
+    return final_jobs
 

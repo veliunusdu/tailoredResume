@@ -43,6 +43,8 @@ class ExperienceItem(BaseModel):
     start_date: str
     end_date: str
     description: List[str]
+    skills_used: List[str] = Field(default_factory=list, description="Specific tech stack or skills used in this role")
+    quantifiable_metrics: List[str] = Field(default_factory=list, description="Metrics, percentages, or concrete numbers mentioned")
 
 class EducationItem(BaseModel):
     institution: str
@@ -53,6 +55,7 @@ class ProjectItem(BaseModel):
     name: str
     description: str
     skills_used: List[str]
+    quantifiable_metrics: List[str] = Field(default_factory=list, description="Metrics, percentages, or concrete numbers mentioned")
 
 class StructuredProfile(BaseModel):
     skills: List[str]
@@ -61,21 +64,34 @@ class StructuredProfile(BaseModel):
     projects: List[ProjectItem]
     years: int = Field(description="Total years of professional experience")
     desired_role: str = Field(description="Inferred desired role based on history")
+    domain_expertise: List[str] = Field(default_factory=list, description="Industries or broad domains (e.g. Fintech, Healthcare, Cloud Infra)")
 
 class SingleJobEvaluation(BaseModel):
     verdict: str = Field(description="'yes', 'maybe', or 'no'")
-    score: int = Field(description="Integer 0-10. 8-10 = strong match, 4-7 = possible, 0-3 = not suitable")
-    reason: str = Field(description="One sentence explanation")
-    found_skills: List[str] = Field(description="List of required tech stack skills found in candidate's profile.", default_factory=list)
-    missing_skills: List[str] = Field(description="List of required tech stack skills missing from candidate's profile.", default_factory=list)
+    role_match: int = Field(description="0-100 score on how well the role/seniority matches the candidate")
+    skills_match: int = Field(description="0-100 score on technical skills overlap")
+    experience_match: int = Field(description="0-100 score on years of experience and domain match")
+    education_match: int = Field(description="0-100 score on educational requirements")
+    missing_required_skills: List[str] = Field(default_factory=list)
+    missing_preferred_skills: List[str] = Field(default_factory=list)
+    hard_blockers: List[str] = Field(default_factory=list)
+    uncertainties: List[str] = Field(default_factory=list)
+    evidence: List[str] = Field(default_factory=list, description="Evidence points from candidate profile justifying the scores")
+    recommendation: str = Field(description="Short sentence recommending next steps")
 
 class BatchJobEvaluationItem(BaseModel):
     id: str = Field(description="The job ID from the prompt")
     verdict: str = Field(description="'yes', 'maybe', or 'no'")
-    score: int = Field(description="Integer 0-10")
-    reason: str = Field(description="One sentence explanation")
-    found_skills: List[str] = Field(description="List of required skills found.", default_factory=list)
-    missing_skills: List[str] = Field(description="List of required skills missing.", default_factory=list)
+    role_match: int = Field(description="0-100 score on how well the role/seniority matches the candidate")
+    skills_match: int = Field(description="0-100 score on technical skills overlap")
+    experience_match: int = Field(description="0-100 score on years of experience and domain match")
+    education_match: int = Field(description="0-100 score on educational requirements")
+    missing_required_skills: List[str] = Field(default_factory=list)
+    missing_preferred_skills: List[str] = Field(default_factory=list)
+    hard_blockers: List[str] = Field(default_factory=list)
+    uncertainties: List[str] = Field(default_factory=list)
+    evidence: List[str] = Field(default_factory=list, description="Evidence points from candidate profile justifying the scores")
+    recommendation: str = Field(description="Short sentence recommending next steps")
 
 class BatchJobEvaluations(BaseModel):
     evaluations: List[BatchJobEvaluationItem]
@@ -91,6 +107,18 @@ class SearchIntent(BaseModel):
     exclude_titles: List[str] = Field(default_factory=list)
     visa_sponsorship: Optional[bool] = Field(default=None, description="True if the user explicitly needs visa sponsorship, False if they explicitly do not, None if unmentioned.")
     notes: str = ""
+    employment_types: List[str] = Field(default_factory=list, description="e.g. internship, part-time, full-time")
+    experience_levels: List[str] = Field(default_factory=list, description="e.g. internship, entry-level, junior, new graduate")
+    remote_only: bool = Field(default=False)
+    target_countries: List[str] = Field(default_factory=list)
+    current_country: str = Field(default="")
+    has_us_work_authorization: bool = Field(default=False)
+    requires_sponsorship: bool = Field(default=False)
+    student_status: bool = Field(default=False)
+    graduation_year: Optional[int] = Field(default=None)
+    preferred_roles: List[str] = Field(default_factory=list)
+    required_keywords: List[str] = Field(default_factory=list)
+    excluded_keywords: List[str] = Field(default_factory=list)
 
 class KeywordAnalysis(BaseModel):
     found: List[str]
@@ -126,12 +154,15 @@ If they do not specify a seniority level, leave the list empty. Do not assume "j
 """.strip()
 
 _SYSTEM_PROMPT_PROFILE_BUILDER = """
-You are an expert technical recruiter and resume parser.
-Your task is to take a raw unstructured resume text and convert it into a highly structured JSON profile.
-Extract all technical skills into a clean array.
-Extract the work experience, education, and projects.
-Calculate the total years of professional experience (excluding internships unless they are the only experience).
-Infer the candidate's desired role based on their most recent positions and skills (e.g. 'Backend Engineer', 'Data Scientist').
+You are an expert technical recruiter and resume parser acting as a strict factual extractor.
+Your task is to take a raw unstructured resume text and convert it into a deeply structured JSON Fact Profile.
+CRITICAL INSTRUCTIONS:
+1. Extract all technical skills into a clean array.
+2. For each experience and project, map specific `skills_used` and aggressively extract `quantifiable_metrics` (e.g., percentages, dollar amounts, user counts, performance gains).
+3. Identify broad `domain_expertise` (e.g., E-commerce, Fintech, DevOps).
+4. Calculate the total years of professional experience (excluding internships unless they are the only experience).
+5. Infer the candidate's desired role.
+Never invent or hallucinate metrics or skills. Only extract what is explicitly stated in the text.
 """.strip()
 
 def build_scoring_system_prompt(profile: dict) -> str:
@@ -139,8 +170,13 @@ def build_scoring_system_prompt(profile: dict) -> str:
     locations = ", ".join(profile.get("locations") or []) or "Remote"
     dealbreakers = ", ".join(profile.get("exclude_titles") or []) or "none"
     resume_summary = profile.get("resume_summary", "No resume uploaded.")
-    structured_data = profile.get("structured_data")
+    structured_data = profile.get("structured_resume_data") or profile.get("structured_data")
     notes = profile.get("profile_notes", "none")
+    
+    sponsorship_req = profile.get("requires_sponsorship") or profile.get("visa_sponsorship")
+    visa_context = ""
+    if sponsorship_req:
+        visa_context = "\n- Visa Sponsorship: The candidate REQUIRES visa sponsorship. If the job explicitly states 'No sponsorship available' or 'Must be US citizen/Green Card', you MUST set the verdict to 'no' and score 0-2."
 
     if structured_data:
         import json
@@ -157,7 +193,7 @@ def build_scoring_system_prompt(profile: dict) -> str:
 Target Search Profile:
 - Target Seniority: {seniority}
 - Target Locations: {locations}
-- Additional Notes: {notes}
+- Additional Notes: {notes}{visa_context}
 
 Explicit Dealbreakers:
 - Excluded Titles: {dealbreakers}
@@ -167,12 +203,14 @@ Your task is to evaluate if a given job matches this specific candidate's resume
 
 GRADING RUBRIC & CONSTRAINTS:
 1. {missing_flag or "Resume is provided. Base your score heavily on the candidate's actual experience versus the job description requirements."}
-2. Location/Dealbreakers: For location mismatches (e.g., job requires on-site when target is Remote-only) or explicit dealbreaker/excluded titles, you MUST set the verdict to "no" and score 0-2.
-3. Scoring Scale:
-   - 8-10: Strong match (resume and profile align perfectly)
-   - 4-7: Possible fit (partial match, or missing resume)
-   - 0-3: Non-match or dealbreakers present
-4. Skills Extraction: Accurately identify core technical skills from the job description. Cross-reference with the candidate profile to populate `found_skills` and `missing_skills`.
+2. Location/Dealbreakers: For location mismatches (e.g., job requires on-site when target is Remote-only) or explicit dealbreaker/excluded titles, you MUST set the verdict to "no" and scores to 0.
+3. Multi-dimensional Scoring (0-100 for each):
+   - role_match: Does the job title and seniority match the candidate's desired role?
+   - skills_match: Does the candidate possess the required technical skills?
+   - experience_match: Does the candidate have the right amount of experience and domain knowledge?
+   - education_match: Does the candidate meet the educational requirements?
+4. Identify missing required and preferred skills. Identify hard blockers (e.g. clearance, visa).
+5. Provide evidence from the resume that justifies the scores.
 """
 
 _SYSTEM_PROMPT_KEYWORDS = """
@@ -270,17 +308,29 @@ def generate_salary_insights(job_desc: str, job_title: str, job_location: str, r
         }
 
 
-def _normalize_result(result: dict) -> dict:
-    score = result.get("score", 0)
+def _to_int(val, default=0):
     try:
-        score = int(score)
-        score = max(0, min(10, score))
-    except (TypeError, ValueError):
-        score = 0
+        return int(val)
+    except (ValueError, TypeError):
+        return default
+
+def _normalize_result(result: dict) -> dict:
     return {
         "verdict": str(result.get("verdict", "no")),
-        "score": score,
-        "reason": str(result.get("reason", "No reason provided")),
+        "role_match": _to_int(result.get("role_match", 0)),
+        "skills_match": _to_int(result.get("skills_match", 0)),
+        "experience_match": _to_int(result.get("experience_match", 0)),
+        "education_match": _to_int(result.get("education_match", 0)),
+        "missing_required_skills": result.get("missing_required_skills", []),
+        "missing_preferred_skills": result.get("missing_preferred_skills", []),
+        "hard_blockers": result.get("hard_blockers", []),
+        "uncertainties": result.get("uncertainties", []),
+        "evidence": result.get("evidence", []),
+        "recommendation": str(result.get("recommendation", result.get("reason", ""))),
+        # Ensure 'reason' and 'found_skills' are present for legacy compatibility if needed
+        "reason": str(result.get("recommendation", result.get("reason", "No recommendation provided"))),
+        "found_skills": [],
+        "missing_skills": result.get("missing_required_skills", []),
     }
 
 def score_job(job: dict, profile: dict) -> dict:
@@ -416,26 +466,24 @@ def extract_structured_profile(resume_text: str) -> dict:
         return {}
 
 _EMBEDDINGS_DISABLED = False
+_EMBEDDING_MODEL = None
 
 def embed_text(text: str) -> list[float]:
-    """Generate a vector embedding for the given text."""
-    global _EMBEDDINGS_DISABLED
+    """Generate a vector embedding for the given text using a local model."""
+    global _EMBEDDINGS_DISABLED, _EMBEDDING_MODEL
     if _EMBEDDINGS_DISABLED:
         return []
         
-    # If using a non-Gemini model (e.g. DeepSeek), we do not have a valid Google API key for embeddings
-    if "gemini" not in GEMINI_MODEL.lower():
-        _logger.info("Configured model is %s (non-Gemini). Disabling vector embeddings.", GEMINI_MODEL)
-        _EMBEDDINGS_DISABLED = True
-        return []
-        
     try:
-        response = litellm.embedding(
-            model="gemini/text-embedding-004",
-            input=[text[:LLM_MAX_DESC_CHARS * 2]],
-        )
-        return response.data[0].embedding
+        if _EMBEDDING_MODEL is None:
+            _logger.info("Loading local embedding model 'all-MiniLM-L6-v2'...")
+            from sentence_transformers import SentenceTransformer
+            _EMBEDDING_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
+            
+        # generate embedding and convert numpy array to list of floats
+        vector = _EMBEDDING_MODEL.encode(text[:LLM_MAX_DESC_CHARS * 2])
+        return vector.tolist()
     except Exception as exc:
-        _logger.error("Embedding generation failed. Disabling future embedding calls: %s", exc)
+        _logger.error("Local embedding generation failed. Disabling future embedding calls: %s", exc)
         _EMBEDDINGS_DISABLED = True
         return []
